@@ -1,0 +1,22 @@
+name: Unity Personal License Activation File
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  activation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request Unity activation file
+        id: activation
+        uses: game-ci/unity-request-activation-file@v2
+      - name: Upload activation file
+        uses: actions/upload-artifact@v4
+        with:
+          name: Unity-Activation-File
+          path: ${{ steps.activation.outputs.filePath }}
+          if-no-files-found: error
+          retention-days: 3
