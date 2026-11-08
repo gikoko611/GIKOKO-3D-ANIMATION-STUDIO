@@ -26,6 +26,7 @@ namespace GIKOKO.Studio
         string projectName = "Myanmar Animation Film";
         AudioSource audioSource;
         string dialogueText = "မင်္ဂလာပါ။ ကျွန်တော်တို့ရဲ့ ရွာလေးကို ကြိုဆိုပါတယ်။";
+        string englishDialogueText = "Welcome to our beautiful village.";
         string subtitleMyanmar = "မင်္ဂလာပါ။ ကျွန်တော်တို့ရဲ့ ရွာလေးကို ကြိုဆိုပါတယ်။";
         string subtitleEnglish = "Welcome to our beautiful village.";
         bool showMyanmarSubtitle = true;
@@ -147,16 +148,20 @@ namespace GIKOKO.Studio
                 GUI.Label(new Rect(16, y, Screen.width - 32, 18), "VOICE • SOUND FX • SUBTITLES", tiny); y += 20;
                 GUI.Label(new Rect(16, y, 55, 20), "Dialogue", tiny);
                 dialogueText = GUI.TextField(new Rect(72, y, Screen.width - 90, 23), dialogueText);
-                y += 28;
+                y += 25;
+                GUI.Label(new Rect(16, y, 55, 20), "English", tiny);
+                englishDialogueText = GUI.TextField(new Rect(72, y, Screen.width - 90, 23), englishDialogueText);
+                y += 27;
                 AddButton("Speak Myanmar", 0, y, w, () => SpeakAndroidTts(dialogueText, "my", "MM"));
-                AddButton("Speak English", 1, y, w, () => SpeakAndroidTts("Welcome to our beautiful village.", "en", "US"));
+                AddButton("Speak English", 1, y, w, () => SpeakAndroidTts(englishDialogueText, "en", "US"));
                 AddButton("Stop Voice", 2, y, w, () => StopTts());
                 y += 29;
                 AddButton("Footsteps", 0, y, w, () => PlayGeneratedSound("footsteps"));
-                AddButton("Rain / Wind", 1, y, w, () => PlayGeneratedSound("rain"));
+                AddButton("Rain", 1, y, w, () => PlayGeneratedSound("rain"));
                 AddButton("Fight FX", 2, y, w, () => PlayGeneratedSound("fight"));
                 y += 29;
-                AddButton("Ambient Music", 0, y, w, () => PlayGeneratedSound("music"));
+                AddButton("Wind", 0, y, w, () => PlayGeneratedSound("wind"));
+                AddButton("Ambient Music", 1, y, w, () => PlayGeneratedSound("music"));
                 AddButton("Stop Audio", 1, y, w, () => { if (audioSource) audioSource.Stop(); status = "Audio stopped"; });
                 AddButton(showMyanmarSubtitle ? "Subtitle: Myanmar" : "Subtitle: English", 2, y, w, () => { showMyanmarSubtitle = !showMyanmarSubtitle; status = "Subtitle language changed"; });
                 y += 29;
@@ -195,15 +200,16 @@ namespace GIKOKO.Studio
                 float value;
                 if (kind == "footsteps") value = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(t * Mathf.PI * 3f)), 12f) * noise * .55f;
                 else if (kind == "rain") value = noise * .13f + Mathf.Sin(t * 83f) * .025f;
+                else if (kind == "wind") value = noise * .08f + Mathf.Sin(t * 1.8f) * .12f;
                 else if (kind == "fight") { float env = Mathf.Exp(-t * 2.5f); value = noise * env * .6f + Mathf.Sin(t * 95f) * env * .2f; }
                 else { float[] notes = { 110f, 138.59f, 164.81f, 220f }; float note = notes[Mathf.FloorToInt(t * .5f) % notes.Length]; phase += 2f * Mathf.PI * note / rate; value = (Mathf.Sin(phase) + .35f * Mathf.Sin(phase * 2f)) * .10f; }
-                float fade = kind == "music" || kind == "rain" ? 1f : Mathf.Clamp01((seconds - t) * 3f);
+                float fade = kind == "music" || kind == "rain" || kind == "wind" ? 1f : Mathf.Clamp01((seconds - t) * 3f);
                 samples[i] = Mathf.Clamp(value * fade, -.8f, .8f);
             }
             AudioClip clip = AudioClip.Create("GIKOKO_" + kind, count, 1, rate, false);
             clip.SetData(samples, 0);
             audioSource.Stop(); audioSource.clip = clip;
-            audioSource.loop = kind == "music" || kind == "rain";
+            audioSource.loop = kind == "music" || kind == "rain" || kind == "wind";
             audioSource.Play(); status = "Generated local audio: " + kind;
         }
 
