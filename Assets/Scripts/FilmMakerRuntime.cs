@@ -358,6 +358,11 @@ namespace GIKOKO.Studio
                 data.durationMinutes = projectDurationMinutes;
                 data.previewDurationSeconds = previewDuration;
                 data.motion = motion.ToString();
+                data.dialogueMyanmar = dialogueText;
+                data.dialogueEnglish = englishDialogueText;
+                data.subtitleMyanmar = subtitleMyanmar;
+                data.subtitleEnglish = subtitleEnglish;
+                data.showMyanmarSubtitle = showMyanmarSubtitle;
                 data.objects = new string[sceneObjects.Count];
                 for (int i = 0; i < sceneObjects.Count; i++) data.objects[i] = sceneObjects[i] ? sceneObjects[i].name : "missing";
                 string path = Path.Combine(Application.persistentDataPath, "gi_koko_film_project.json");
@@ -373,6 +378,11 @@ namespace GIKOKO.Studio
             public float previewDurationSeconds;
             public string motion;
             public string[] objects;
+            public string dialogueMyanmar;
+            public string dialogueEnglish;
+            public string subtitleMyanmar;
+            public string subtitleEnglish;
+            public bool showMyanmarSubtitle;
         }
     }
 }
