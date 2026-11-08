@@ -159,6 +159,10 @@ namespace GIKOKO.Studio
                 AddButton("Speak English", 1, y, w, () => SpeakAndroidTts(englishDialogueText, "en", "US"));
                 AddButton("Stop Voice", 2, y, w, () => StopTts());
                 y += 29;
+                AddButton("Save MY Voice WAV", 0, y, w, () => SaveTtsWav(dialogueText, "MY"));
+                AddButton("Save EN Voice WAV", 1, y, w, () => SaveTtsWav(englishDialogueText, "EN"));
+                AddButton("Stop TTS", 2, y, w, () => StopTts());
+                y += 29;
                 AddButton("Footsteps", 0, y, w, () => PlayGeneratedSound("footsteps"));
                 AddButton("Rain", 1, y, w, () => PlayGeneratedSound("rain"));
                 AddButton("Fight FX", 2, y, w, () => PlayGeneratedSound("fight"));
@@ -190,8 +194,12 @@ namespace GIKOKO.Studio
             }
             GUI.color = new Color(.65f, .85f, .9f);
             GUI.Label(new Rect(16, top + h - 18, Screen.width - 32, 16), status, tiny);
-            if (showMyanmarSubtitle) GUI.Label(new Rect(12, Screen.height - 139, Screen.width - 24, 28), subtitleMyanmar, heading);
-            else GUI.Label(new Rect(12, Screen.height - 139, Screen.width - 24, 28), subtitleEnglish, heading);
+            bool subtitleVisible = playhead >= subtitleStartSeconds && playhead <= subtitleEndSeconds;
+            if (subtitleVisible)
+            {
+                if (showMyanmarSubtitle) GUI.Label(new Rect(12, Screen.height - 139, Screen.width - 24, 28), subtitleMyanmar, heading);
+                else GUI.Label(new Rect(12, Screen.height - 139, Screen.width - 24, 28), subtitleEnglish, heading);
+            }
             GUI.color = Color.white;
         }
 
@@ -307,6 +315,27 @@ namespace GIKOKO.Studio
             catch (Exception e) { status = "TTS unavailable: " + e.Message; }
 #else
             status = "Android system TTS is available in the APK";
+#endif
+        }
+
+        void SaveTtsWav(string text, string languageTag)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                if (string.IsNullOrWhiteSpace(text)) { status = "Enter dialogue text first"; return; }
+                if (androidTts == null || !ttsReady) { status = "Android TTS is initializing; try again shortly"; return; }
+                string path = Path.Combine(Application.persistentDataPath, "GIKOKO_Voice_" + languageTag + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".wav");
+                using (var bundle = new AndroidJavaObject("android.os.Bundle"))
+                using (var outputFile = new AndroidJavaObject("java.io.File", path))
+                {
+                    int result = androidTts.Call<int>("synthesizeToFile", text, bundle, outputFile, "gikoko_voice_" + languageTag);
+                    status = result == 0 ? "TTS WAV synthesis requested: " + path : "TTS WAV synthesis failed: " + result;
+                }
+            }
+            catch (Exception e) { status = "TTS WAV error: " + e.Message; }
+#else
+            status = "TTS WAV export is available in the Android APK";
 #endif
         }
 
