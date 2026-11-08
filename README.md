@@ -1,25 +1,38 @@
 # G.I KO KO 3D ANIMATION STUDIO
 
-A phone-first 3D asset studio prototype for Android 10+ (ARMv7).
+Unity 6 migration branch for a phone-first 3D creation and animation studio.
 
-## Current build scope
-- 3D viewport with orbit camera and sample primitives
-- Add basic mesh objects (box, sphere, capsule)
-- Import GLB/GLTF and OBJ assets from device storage
-- Export GLB assets
-- Simple project save/load as JSON
-- Free AI Image-to-3D workflow links (generation is performed by external hosted demos; no paid API key is embedded)
-- GitHub Actions Android APK build
+## Target device
+- Android 10+
+- ARMv7 (32-bit) APK
+- OpenGL ES compatibility target
+- Low-memory mobile preview profile
 
-## Important free-AI note
-The app does not run large image-to-3D models on the Redmi 9A. Open models such as [TripoSR](https://github.com/VAST-AI-Research/TripoSR) can be used through a hosted demo or a separately managed GPU machine. Hosted free demos may have queues, limits, or change availability. The app provides an import workflow for generated GLB/OBJ files; it does not claim unlimited free cloud generation.
+## Current Unity 6 foundation
+- Unity 6000.0.64f1 project scaffold
+- Runtime 3D preview with cube, sphere and capsule primitives
+- Basic rotate and scale controls
+- Local JSON project save
+- Android ARMv7 + IL2CPP build configuration
+- GitHub Actions build workflow
 
-## Build
-Push to `main` or run the **Android APK** workflow manually. Download the APK from the workflow artifact.
+## Build requirements
+This repository uses GitHub Actions; no Android SDK, JDK or Unity Editor installation is required on the phone.
 
-Target: Android 10+, armeabi-v7a (32-bit). The build uses Godot 4 and GitHub Actions.
+A Unity Personal license is required by the CI build. Run the Unity Personal License Activation File workflow, download its artifact, submit the .alf file at https://license.unity.com/manual, then add the returned license file contents as the repository Actions secret named UNITY_LICENSE. Do not commit license files or passwords.
 
-## Roadmap
-Rigging, timeline animation, multi-view reconstruction, texture editing, and video rendering are planned stages, not yet implemented in this initial prototype.
+After setting the secret, run Unity 6 Android ARMv7 APK. The workflow uploads the APK as an artifact.
+
+## Planned modules
+1. GLB/GLTF import and export
+2. Myanmar 3D asset library
+3. PBR material editor
+4. Offline background removal model
+5. Mesh cleanup and polygon reduction
+6. Character skeleton and bone editor
+7. Pose and keyframe animation timeline
+8. Anime storyboard, audio, subtitles and scene renderer
+
+These modules are roadmap items, not implemented in this foundation build. Advanced rendering and AI generation must be staged carefully for Redmi 9A performance.
 
 Powered By အိုင်ကိုကို
