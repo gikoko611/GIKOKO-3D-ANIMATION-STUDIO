@@ -162,7 +162,7 @@ namespace GIKOKO.Studio
                 y += 29;
                 AddButton("Wind", 0, y, w, () => PlayGeneratedSound("wind"));
                 AddButton("Ambient Music", 1, y, w, () => PlayGeneratedSound("music"));
-                AddButton("Stop Audio", 1, y, w, () => { if (audioSource) audioSource.Stop(); status = "Audio stopped"; });
+                AddButton("Stop Audio", 2, y, w, () => { if (audioSource) audioSource.Stop(); status = "Audio stopped"; });
                 AddButton(showMyanmarSubtitle ? "Subtitle: Myanmar" : "Subtitle: English", 2, y, w, () => { showMyanmarSubtitle = !showMyanmarSubtitle; status = "Subtitle language changed"; });
                 y += 29;
                 GUI.Label(new Rect(16, y, Screen.width - 32, 30), "MY: " + subtitleMyanmar, tiny); y += 28;
