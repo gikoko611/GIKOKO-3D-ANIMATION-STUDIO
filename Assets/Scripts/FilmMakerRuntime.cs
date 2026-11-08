@@ -9,7 +9,7 @@ namespace GIKOKO.Studio
     // the existing Sculpt+ workspace remains intact.
     public class FilmMakerRuntime : MonoBehaviour
     {
-        enum StudioTab { Scene, Character, Timeline, Export }
+        enum StudioTab { Scene, Character, Timeline, Audio, Export }
         enum Motion { Idle, Walk, Run, Talk, Fight }
         StudioTab tab = StudioTab.Scene;
         Motion motion = Motion.Idle;
@@ -24,12 +24,21 @@ namespace GIKOKO.Studio
         bool cartoonStyle = true;
         string status = "Film Maker ready • create a scene";
         string projectName = "Myanmar Animation Film";
+        AudioSource audioSource;
+        string dialogueText = "မင်္ဂလာပါ။ ကျွန်တော်တို့ရဲ့ ရွာလေးကို ကြိုဆိုပါတယ်။";
+        string subtitleMyanmar = "မင်္ဂလာပါ။ ကျွန်တော်တို့ရဲ့ ရွာလေးကို ကြိုဆိုပါတယ်။";
+        string subtitleEnglish = "Welcome to our beautiful village.";
+        bool showMyanmarSubtitle = true;
+        bool ttsReady;
+        AndroidJavaObject androidTts;
         GUIStyle heading, tiny, button;
         Camera sceneCamera;
 
         void Start()
         {
             Application.targetFrameRate = 30;
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
             sceneCamera = Camera.main;
             if (sceneCamera == null && Camera.allCameras.Length > 0) sceneCamera = Camera.allCameras[0];
         }
@@ -87,8 +96,8 @@ namespace GIKOKO.Studio
             GUI.color = new Color(.25f, 1f, .68f);
             GUI.Label(new Rect(16, top + 5, 180, 20), "FILM MAKER  /  " + tab.ToString().ToUpperInvariant(), heading);
             GUI.color = Color.white;
-            string[] tabs = { "Scene", "Character", "Timeline", "Export" };
-            float tabW = (Screen.width - 36f) / 4f;
+            string[] tabs = { "Scene", "Character", "Timeline", "Audio", "Export" };
+            float tabW = (Screen.width - 36f) / 5f;
             for (int i = 0; i < tabs.Length; i++)
                 if (GUI.Button(new Rect(14 + i * tabW, top + 27, tabW - 4, 25), tabs[i], button)) tab = (StudioTab)i;
 
@@ -133,6 +142,27 @@ namespace GIKOKO.Studio
                 AddButton("Walk Clip", 1, y, w, () => SetMotion(Motion.Walk));
                 AddButton("Talk Clip", 2, y, w, () => SetMotion(Motion.Talk));
             }
+            else if (tab == StudioTab.Audio)
+            {
+                GUI.Label(new Rect(16, y, Screen.width - 32, 18), "VOICE • SOUND FX • SUBTITLES", tiny); y += 20;
+                GUI.Label(new Rect(16, y, 55, 20), "Dialogue", tiny);
+                dialogueText = GUI.TextField(new Rect(72, y, Screen.width - 90, 23), dialogueText);
+                y += 28;
+                AddButton("Speak Myanmar", 0, y, w, () => SpeakAndroidTts(dialogueText, "my", "MM"));
+                AddButton("Speak English", 1, y, w, () => SpeakAndroidTts("Welcome to our beautiful village.", "en", "US"));
+                AddButton("Stop Voice", 2, y, w, () => StopTts());
+                y += 29;
+                AddButton("Footsteps", 0, y, w, () => PlayGeneratedSound("footsteps"));
+                AddButton("Rain / Wind", 1, y, w, () => PlayGeneratedSound("rain"));
+                AddButton("Fight FX", 2, y, w, () => PlayGeneratedSound("fight"));
+                y += 29;
+                AddButton("Ambient Music", 0, y, w, () => PlayGeneratedSound("music"));
+                AddButton("Stop Audio", 1, y, w, () => { if (audioSource) audioSource.Stop(); status = "Audio stopped"; });
+                AddButton(showMyanmarSubtitle ? "Subtitle: Myanmar" : "Subtitle: English", 2, y, w, () => { showMyanmarSubtitle = !showMyanmarSubtitle; status = "Subtitle language changed"; });
+                y += 29;
+                GUI.Label(new Rect(16, y, Screen.width - 32, 30), "MY: " + subtitleMyanmar, tiny); y += 28;
+                GUI.Label(new Rect(16, y, Screen.width - 32, 30), "EN: " + subtitleEnglish, tiny);
+            }
             else
             {
                 GUI.Label(new Rect(16, y, Screen.width - 32, 30), "EXPORT PLAN • scene chunks → encode → merge", tiny); y += 32;
@@ -143,7 +173,87 @@ namespace GIKOKO.Studio
             }
             GUI.color = new Color(.65f, .85f, .9f);
             GUI.Label(new Rect(16, top + h - 18, Screen.width - 32, 16), status, tiny);
+            if (showMyanmarSubtitle) GUI.Label(new Rect(12, Screen.height - 139, Screen.width - 24, 28), subtitleMyanmar, heading);
+            else GUI.Label(new Rect(12, Screen.height - 139, Screen.width - 24, 28), subtitleEnglish, heading);
             GUI.color = Color.white;
+        }
+
+
+        void PlayGeneratedSound(string kind)
+        {
+            if (!audioSource) audioSource = gameObject.AddComponent<AudioSource>();
+            int rate = 22050;
+            int seconds = kind == "music" ? 8 : (kind == "rain" ? 5 : 2);
+            int count = rate * seconds;
+            float[] samples = new float[count];
+            System.Random rng = new System.Random(kind.GetHashCode());
+            float phase = 0f;
+            for (int i = 0; i < count; i++)
+            {
+                float t = (float)i / rate;
+                float noise = (float)(rng.NextDouble() * 2.0 - 1.0);
+                float value;
+                if (kind == "footsteps") value = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(t * Mathf.PI * 3f)), 12f) * noise * .55f;
+                else if (kind == "rain") value = noise * .13f + Mathf.Sin(t * 83f) * .025f;
+                else if (kind == "fight") { float env = Mathf.Exp(-t * 2.5f); value = noise * env * .6f + Mathf.Sin(t * 95f) * env * .2f; }
+                else { float[] notes = { 110f, 138.59f, 164.81f, 220f }; float note = notes[Mathf.FloorToInt(t * .5f) % notes.Length]; phase += 2f * Mathf.PI * note / rate; value = (Mathf.Sin(phase) + .35f * Mathf.Sin(phase * 2f)) * .10f; }
+                float fade = kind == "music" || kind == "rain" ? 1f : Mathf.Clamp01((seconds - t) * 3f);
+                samples[i] = Mathf.Clamp(value * fade, -.8f, .8f);
+            }
+            AudioClip clip = AudioClip.Create("GIKOKO_" + kind, count, 1, rate, false);
+            clip.SetData(samples, 0);
+            audioSource.Stop(); audioSource.clip = clip;
+            audioSource.loop = kind == "music" || kind == "rain";
+            audioSource.Play(); status = "Generated local audio: " + kind;
+        }
+
+        void SpeakAndroidTts(string text, string language, string country)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                if (androidTts == null)
+                {
+                    using (var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                    using (var activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
+                        androidTts = new AndroidJavaObject("android.speech.tts.TextToSpeech", activity, new TtsInitListener(this));
+                }
+                if (!ttsReady) { status = "Android TTS initializing; tap Speak again shortly"; return; }
+                using (var locale = new AndroidJavaObject("java.util.Locale", language, country))
+                using (var bundle = new AndroidJavaObject("android.os.Bundle"))
+                {
+                    int result = androidTts.Call<int>("setLanguage", locale);
+                    if (result < 0) { status = "Voice pack unavailable: " + language + "-" + country; return; }
+                    androidTts.Call<int>("speak", text, 0, bundle, "gikoko_dialogue");
+                    status = "Speaking with Android system TTS • " + language;
+                }
+            }
+            catch (Exception e) { status = "TTS unavailable: " + e.Message; }
+#else
+            status = "Android system TTS is available in the APK";
+#endif
+        }
+
+        void StopTts()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try { if (androidTts != null) androidTts.Call<int>("stop"); } catch { }
+#endif
+            status = "Voice-over stopped";
+        }
+
+        class TtsInitListener : AndroidJavaProxy
+        {
+            readonly FilmMakerRuntime owner;
+            public TtsInitListener(FilmMakerRuntime runtime) : base("android.speech.tts.TextToSpeech$OnInitListener") { owner = runtime; }
+            void onInit(int statusCode) { owner.ttsReady = statusCode == 0; owner.status = owner.ttsReady ? "Android TTS ready" : "Android TTS initialization failed"; }
+        }
+
+        void OnDestroy()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try { if (androidTts != null) { androidTts.Call<int>("stop"); androidTts.Call("shutdown"); androidTts.Dispose(); } } catch { }
+#endif
         }
 
         void AddButton(string label, int column, float y, float width, Action action)
