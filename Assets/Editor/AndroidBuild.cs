@@ -58,7 +58,6 @@ namespace GIKOKO.Editor
                 var root = new GameObject("GIKOKO_Studio");
                 root.AddComponent<GIKOKO.Studio.StudioBootstrap>();
                 root.AddComponent<GIKOKO.Studio.FilmMakerRuntime>();
-                root.AddComponent<GIKOKO.Studio.FilmMakerRuntime>();
                 EditorSceneManager.SaveScene(newScene, scenePath);
             }
             else
