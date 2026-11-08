@@ -1,5 +1,6 @@
 using System.IO;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -25,6 +26,14 @@ namespace GIKOKO.Editor
             PlayerSettings.allowedAutorotateToLandscapeLeft = true;
             PlayerSettings.allowedAutorotateToLandscapeRight = true;
             EditorUserBuildSettings.buildAppBundle = false;
+
+            // Optional app icon supplied by the user in Assets/Art/AppIcon.jpg.
+            const string iconPath = "Assets/Art/AppIcon.jpg";
+            var appIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(iconPath);
+            if (appIcon != null)
+                PlayerSettings.SetIcons(NamedBuildTarget.Android, new[] { appIcon }, IconKind.Application);
+            else
+                Debug.LogWarning("App icon not found. Add Assets/Art/AppIcon.jpg to include the custom icon.");
 
             const string scenePath = "Assets/Scenes/Main.unity";
             if (!File.Exists(scenePath))
