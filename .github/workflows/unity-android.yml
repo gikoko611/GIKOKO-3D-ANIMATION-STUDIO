@@ -1,0 +1,46 @@
+name: Unity 6 Android ARMv7 APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [unity6-migration]
+    paths:
+      - 'Assets/**'
+      - 'Packages/**'
+      - 'ProjectSettings/**'
+      - '.github/workflows/unity-android.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Unity 6 ARMv7 APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Unity license secret
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        run: |
+          if [ -z "$UNITY_LICENSE" ]; then
+            echo "::error::Missing UNITY_LICENSE secret. Run the Unity Personal activation workflow and add the resulting license as a repository secret."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - name: Build Android APK
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          projectPath: .
+          unityVersion: 6000.0.64f1
+          targetPlatform: Android
+          buildMethod: GIKOKO.Editor.AndroidBuild.BuildAndroid
+          androidAppBundle: false
+      - name: Upload ARMv7 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7
+          path: Build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
+          if-no-files-found: error
+          retention-days: 14
