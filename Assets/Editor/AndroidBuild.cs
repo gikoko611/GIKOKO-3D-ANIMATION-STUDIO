@@ -51,12 +51,32 @@ namespace GIKOKO.Editor
                 Debug.LogWarning("App icon not found. Add Assets/Art/AppIcon.jpg to include the custom icon.");
 
             const string scenePath = "Assets/Scenes/Main.unity";
+            Directory.CreateDirectory("Assets/Scenes");
             if (!File.Exists(scenePath))
             {
-                Directory.CreateDirectory("Assets/Scenes");
-                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                var newScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 var root = new GameObject("GIKOKO_Studio");
                 root.AddComponent<GIKOKO.Studio.StudioBootstrap>();
+                root.AddComponent<GIKOKO.Studio.FilmMakerRuntime>();
+                EditorSceneManager.SaveScene(newScene, scenePath);
+            }
+            else
+            {
+                var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                GameObject root = null;
+                foreach (var candidate in scene.GetRootGameObjects())
+                {
+                    if (candidate.GetComponent<GIKOKO.Studio.StudioBootstrap>() != null)
+                    {
+                        root = candidate;
+                        break;
+                    }
+                }
+                if (root == null) root = new GameObject("GIKOKO_Studio");
+                if (root.GetComponent<GIKOKO.Studio.StudioBootstrap>() == null)
+                    root.AddComponent<GIKOKO.Studio.StudioBootstrap>();
+                if (root.GetComponent<GIKOKO.Studio.FilmMakerRuntime>() == null)
+                    root.AddComponent<GIKOKO.Studio.FilmMakerRuntime>();
                 EditorSceneManager.SaveScene(scene, scenePath);
             }
             Directory.CreateDirectory("Build");
