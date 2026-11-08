@@ -25,6 +25,9 @@ namespace GIKOKO.Studio
         string status = "Film Maker ready • create a scene";
         string projectName = "Myanmar Animation Film";
         AudioSource audioSource;
+        AudioClip lastGeneratedClip;
+        float subtitleStartSeconds = 0f;
+        float subtitleEndSeconds = 5f;
         string dialogueText = "မင်္ဂလာပါ။ ကျွန်တော်တို့ရဲ့ ရွာလေးကို ကြိုဆိုပါတယ်။";
         string englishDialogueText = "Welcome to our beautiful village.";
         string subtitleMyanmar = "မင်္ဂလာပါ။ ကျွန်တော်တို့ရဲ့ ရွာလေးကို ကြိုဆိုပါတယ်။";
@@ -163,12 +166,19 @@ namespace GIKOKO.Studio
                 AddButton("Wind", 0, y, w, () => PlayGeneratedSound("wind"));
                 AddButton("Ambient Music", 1, y, w, () => PlayGeneratedSound("music"));
                 AddButton("Stop Audio", 2, y, w, () => { if (audioSource) audioSource.Stop(); status = "Audio stopped"; });
-                AddButton(showMyanmarSubtitle ? "Subtitle: Myanmar" : "Subtitle: English", 2, y, w, () => { showMyanmarSubtitle = !showMyanmarSubtitle; status = "Subtitle language changed"; });
+                y += 29;
+                AddButton("Save FX WAV", 0, y, w, () => SaveGeneratedWav());
+                AddButton(showMyanmarSubtitle ? "Subtitle: Myanmar" : "Subtitle: English", 1, y, w, () => { showMyanmarSubtitle = !showMyanmarSubtitle; status = "Subtitle language changed"; });
+                AddButton("Export SRT", 2, y, w, () => ExportSubtitlesSrt());
                 y += 29;
                 GUI.Label(new Rect(16, y, 55, 20), "MY Sub", tiny);
                 subtitleMyanmar = GUI.TextField(new Rect(72, y, Screen.width - 90, 23), subtitleMyanmar); y += 27;
                 GUI.Label(new Rect(16, y, 55, 20), "EN Sub", tiny);
-                subtitleEnglish = GUI.TextField(new Rect(72, y, Screen.width - 90, 23), subtitleEnglish);
+                subtitleEnglish = GUI.TextField(new Rect(72, y, Screen.width - 90, 23), subtitleEnglish); y += 27;
+                GUI.Label(new Rect(16, y, 72, 18), "Start " + subtitleStartSeconds.ToString("0.0") + "s", tiny);
+                subtitleStartSeconds = GUI.HorizontalSlider(new Rect(92, y + 3, Screen.width - 112, 16), subtitleStartSeconds, 0f, Mathf.Max(1f, previewDuration - .5f)); y += 20;
+                GUI.Label(new Rect(16, y, 72, 18), "End " + subtitleEndSeconds.ToString("0.0") + "s", tiny);
+                subtitleEndSeconds = GUI.HorizontalSlider(new Rect(92, y + 3, Screen.width - 112, 16), subtitleEndSeconds, subtitleStartSeconds + .1f, Mathf.Max(subtitleStartSeconds + .1f, previewDuration));
             }
             else
             {
@@ -210,9 +220,67 @@ namespace GIKOKO.Studio
             }
             AudioClip clip = AudioClip.Create("GIKOKO_" + kind, count, 1, rate, false);
             clip.SetData(samples, 0);
+            lastGeneratedClip = clip;
             audioSource.Stop(); audioSource.clip = clip;
             audioSource.loop = kind == "music" || kind == "rain" || kind == "wind";
             audioSource.Play(); status = "Generated local audio: " + kind;
+        }
+
+
+        void SaveGeneratedWav()
+        {
+            try
+            {
+                if (lastGeneratedClip == null) { status = "Generate an audio effect first"; return; }
+                string path = Path.Combine(Application.persistentDataPath, "GIKOKO_" + lastGeneratedClip.name + ".wav");
+                float[] samples = new float[lastGeneratedClip.samples * lastGeneratedClip.channels];
+                lastGeneratedClip.GetData(samples, 0);
+                using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write))
+                using (var writer = new BinaryWriter(stream))
+                {
+                    int dataBytes = samples.Length * 2;
+                    writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
+                    writer.Write(36 + dataBytes);
+                    writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
+                    writer.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
+                    writer.Write(16); writer.Write((short)1); writer.Write((short)lastGeneratedClip.channels);
+                    writer.Write(lastGeneratedClip.frequency);
+                    writer.Write(lastGeneratedClip.frequency * lastGeneratedClip.channels * 2);
+                    writer.Write((short)(lastGeneratedClip.channels * 2)); writer.Write((short)16);
+                    writer.Write(System.Text.Encoding.ASCII.GetBytes("data")); writer.Write(dataBytes);
+                    for (int i = 0; i < samples.Length; i++)
+                    {
+                        short value = (short)Mathf.RoundToInt(Mathf.Clamp(samples[i], -1f, 1f) * 32767f);
+                        writer.Write(value);
+                    }
+                }
+                status = "WAV saved: " + path;
+            }
+            catch (Exception e) { status = "WAV export error: " + e.Message; }
+        }
+
+        string SrtTime(float seconds)
+        {
+            int ms = Mathf.Max(0, Mathf.RoundToInt(seconds * 1000f));
+            int hours = ms / 3600000; ms %= 3600000;
+            int minutes = ms / 60000; ms %= 60000;
+            int secs = ms / 1000; ms %= 1000;
+            return hours.ToString("00") + ":" + minutes.ToString("00") + ":" + secs.ToString("00") + "," + ms.ToString("000");
+        }
+
+        void ExportSubtitlesSrt()
+        {
+            try
+            {
+                float start = Mathf.Max(0f, subtitleStartSeconds);
+                float end = Mathf.Max(start + .1f, subtitleEndSeconds);
+                string text = showMyanmarSubtitle ? subtitleMyanmar : subtitleEnglish;
+                string content = "1\r\n" + SrtTime(start) + " --> " + SrtTime(end) + "\r\n" + text + "\r\n";
+                string path = Path.Combine(Application.persistentDataPath, "GIKOKO_Subtitles_" + (showMyanmarSubtitle ? "MY" : "EN") + ".srt");
+                File.WriteAllText(path, content, new System.Text.UTF8Encoding(true));
+                status = "SRT subtitle saved: " + path;
+            }
+            catch (Exception e) { status = "SRT export error: " + e.Message; }
         }
 
         void SpeakAndroidTts(string text, string language, string country)
@@ -363,6 +431,8 @@ namespace GIKOKO.Studio
                 data.subtitleMyanmar = subtitleMyanmar;
                 data.subtitleEnglish = subtitleEnglish;
                 data.showMyanmarSubtitle = showMyanmarSubtitle;
+                data.subtitleStartSeconds = subtitleStartSeconds;
+                data.subtitleEndSeconds = subtitleEndSeconds;
                 data.objects = new string[sceneObjects.Count];
                 for (int i = 0; i < sceneObjects.Count; i++) data.objects[i] = sceneObjects[i] ? sceneObjects[i].name : "missing";
                 string path = Path.Combine(Application.persistentDataPath, "gi_koko_film_project.json");
@@ -383,6 +453,8 @@ namespace GIKOKO.Studio
             public string subtitleMyanmar;
             public string subtitleEnglish;
             public bool showMyanmarSubtitle;
+            public float subtitleStartSeconds;
+            public float subtitleEndSeconds;
         }
     }
 }
