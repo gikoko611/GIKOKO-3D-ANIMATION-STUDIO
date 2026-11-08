@@ -27,11 +27,26 @@ namespace GIKOKO.Editor
             PlayerSettings.allowedAutorotateToLandscapeRight = true;
             EditorUserBuildSettings.buildAppBundle = false;
 
-            // Optional app icon supplied by the user in Assets/Art/AppIcon.jpg.
+            // Normalize the supplied icon for Android launcher use before assigning it.
             const string iconPath = "Assets/Art/AppIcon.jpg";
+            var iconImporter = AssetImporter.GetAtPath(iconPath) as TextureImporter;
+            if (iconImporter != null)
+            {
+                iconImporter.textureType = TextureImporterType.Default;
+                iconImporter.mipmapEnabled = false;
+                iconImporter.maxTextureSize = 512;
+                iconImporter.textureCompression = TextureImporterCompression.Compressed;
+                iconImporter.compressionQuality = 90;
+                iconImporter.SaveAndReimport();
+            }
             var appIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(iconPath);
             if (appIcon != null)
+            {
+                if (appIcon.width != appIcon.height)
+                    Debug.LogWarning("AppIcon.jpg is not square. Unity will fit it into launcher icon slots; a square 512x512 source is recommended.");
                 PlayerSettings.SetIcons(NamedBuildTarget.Android, new[] { appIcon }, IconKind.Application);
+                Debug.Log("Android launcher icon assigned: " + appIcon.width + "x" + appIcon.height);
+            }
             else
                 Debug.LogWarning("App icon not found. Add Assets/Art/AppIcon.jpg to include the custom icon.");
 
