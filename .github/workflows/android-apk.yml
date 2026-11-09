@@ -56,12 +56,13 @@ jobs:
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" --licenses >/dev/null
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" "platform-tools" "platforms;android-34" "build-tools;34.0.0" "cmake;3.10.2.4988404" "ndk;23.2.8568313"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" "cmdline-tools;latest" "platform-tools" "platforms;android-34" "build-tools;34.0.0" "cmake;3.10.2.4988404" "ndk;23.2.8568313"
 
       - name: Configure Godot Android export
         run: |
-          mkdir -p "$HOME/.config/godot" "$HOME/.android"
+          mkdir -p "$HOME/.config/godot" "$HOME/.android" .ci
           keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+          cp "$HOME/.android/debug.keystore" .ci/debug.keystore
           cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
           [gd_resource type="EditorSettings" format=3]
           [resource]
@@ -69,14 +70,17 @@ jobs:
           export/android/java_sdk_path = "$JAVA_HOME"
           export/android/debug_keystore = "$HOME/.android/debug.keystore"
           export/android/debug_keystore_user = "androiddebugkey"
-          export/android/debug_keystore_password = "android"
+          export/android/debug_keystore_pass = "android"
           EOF
+          echo "SDK packages:"
+          ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools" "$ANDROID_HOME/ndk" "$ANDROID_HOME/cmake"
 
       - name: Verify project files
         run: |
           test -f project.godot
           test -f scenes/main.tscn
           test -f scripts/app.gd
+          test -f .ci/debug.keystore
 
       - name: Validate Godot project
         run: godot --headless --path . --editor --quit
@@ -87,6 +91,8 @@ jobs:
           test -x "$ANDROID_HOME/platform-tools/adb"
           test -d "$ANDROID_HOME/platforms/android-34"
           test -d "$ANDROID_HOME/build-tools/34.0.0"
+          test -d "$ANDROID_HOME/ndk/23.2.8568313"
+          test -d "$ANDROID_HOME/cmake/3.10.2.4988404"
           test -f "$HOME/.android/debug.keystore"
           java -version
           echo "JAVA_HOME=$JAVA_HOME"
@@ -98,8 +104,7 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
-          mkdir -p build .ci
-          cp "$HOME/.android/debug.keystore" .ci/debug.keystore
+          mkdir -p build
           set -o pipefail
           godot --headless --verbose --path . --export-debug "Android ARMv7" build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk 2>&1 | tee build/export.log
 
