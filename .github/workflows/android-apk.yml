@@ -21,26 +21,69 @@ jobs:
   build:
     name: Validate and Build Godot Android ARMv7
     runs-on: ubuntu-latest
-    container:
-      image: barichello/godot-ci:4.3
+    env:
+      ANDROID_HOME: /opt/android-sdk
+      ANDROID_SDK_ROOT: /opt/android-sdk
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify Godot project files
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget unzip zip openjdk-17-jdk-headless
+          echo "$JAVA_HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Install Godot 4.3 and Android export templates
+        run: |
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.3.stable"
+          wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip -O /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot-bin
+          sudo install -m 0755 /tmp/godot-bin/Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot
+          wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz -O /tmp/godot-templates.tpz
+          mkdir -p /tmp/godot-templates
+          unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
+          cp -a /tmp/godot-templates/templates/. "$HOME/.local/share/godot/export_templates/4.3.stable/"
+          godot --version
+
+      - name: Install Android SDK
+        run: |
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/android-tools.zip
+          mkdir -p /tmp/android-tools
+          unzip -q /tmp/android-tools.zip -d /tmp/android-tools
+          mv /tmp/android-tools/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" --licenses >/dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
+      - name: Configure Godot Android export
+        run: |
+          mkdir -p "$HOME/.config/godot" "$HOME/.android"
+          keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/debug_keystore = "$HOME/.android/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_password = "android"
+          EOF
+
+      - name: Verify project files
         run: |
           test -f project.godot
           test -f scenes/main.tscn
           test -f scripts/app.gd
 
-      - name: Prepare output
-        run: mkdir -p build
-
-      - name: Validate project
+      - name: Validate Godot project
         run: godot --headless --path . --editor --quit
 
       - name: Export Android ARMv7 APK
-        run: godot --headless --path . --export-debug "Android ARMv7" build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android ARMv7" build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
 
       - name: Verify APK contains ARMv7 native library
         run: |
