@@ -25,6 +25,12 @@ var subtitle_cues: Array[Dictionary] = []
 var subtitle_dialog: AcceptDialog
 var subtitle_input: LineEdit
 var srt_dialog: FileDialog
+var audio_dialog: FileDialog
+var audio_player: AudioStreamPlayer
+var subtitle_preview: Label
+var film_playing := false
+var film_clock := 0.0
+var audio_file_path := ""
 var sculpt_enabled := false
 var sculpt_brush := "Clay"
 var sculpt_radius := 0.42
@@ -64,6 +70,9 @@ func _build_world() -> void:
 	camera.look_at(Vector3.ZERO)
 	world.add_child(camera)
 	camera.current = true
+	audio_player = AudioStreamPlayer.new()
+	audio_player.name = "FilmAudioPlayer"
+	world.add_child(audio_player)
 	animation_player = AnimationPlayer.new()
 	animation_player.name = "StudioAnimationPlayer"
 	animation_player.root_node = NodePath("..")
@@ -203,8 +212,18 @@ func _build_ui() -> void:
 	film_title.add_theme_color_override("font_color", GOLD)
 	side.add_child(film_title)
 	_add_button(side, "＋ Camera Marker", _add_camera_marker)
+	_add_button(side, "▶ Play Film Preview", _play_film_preview)
+	_add_button(side, "■ Stop Film Preview", _stop_film_preview)
+	_add_button(side, "＋ Import Audio", _open_audio_import)
+	_add_button(side, "▶ Play Audio", _play_audio)
+	_add_button(side, "■ Stop Audio", _stop_audio)
 	_add_button(side, "＋ Subtitle Cue", _open_subtitle_dialog)
 	_add_button(side, "Export Subtitles (SRT)", _open_srt_export)
+	subtitle_preview = Label.new()
+	subtitle_preview.text = "Subtitle preview"
+	subtitle_preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	subtitle_preview.add_theme_color_override("font_color", GOLD)
+	side.add_child(subtitle_preview)
 	_add_button(side, "Duplicate Object", _duplicate_selected)
 	_add_button(side, "Delete Object", _delete_selected)
 	_add_button(side, "Reset Transform", _reset_selected)
@@ -245,6 +264,12 @@ func _build_ui() -> void:
 	srt_dialog.current_file = "GI_KO_KO_Subtitles.srt"
 	srt_dialog.file_selected.connect(_export_srt)
 	add_child(srt_dialog)
+	audio_dialog = FileDialog.new()
+	audio_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	audio_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	audio_dialog.add_filter("*.wav, *.mp3, *.ogg", "Audio files")
+	audio_dialog.file_selected.connect(_import_audio)
+	add_child(audio_dialog)
 	_apply_theme(self)
 
 func _apply_theme(node: Control) -> void:
@@ -466,6 +491,133 @@ func _stop_animation() -> void:
 		return
 	animation_player.stop()
 	_set_status("Animation stopped")
+
+
+
+func _process(delta: float) -> void:
+	if not film_playing:
+		return
+	film_clock += delta
+	timeline_time = film_clock
+	if timeline_slider != null:
+		timeline_slider.set_value_no_signal(timeline_time)
+	_update_film_camera()
+	_update_subtitle_preview()
+	var duration := _film_duration()
+	if duration > 0.0 and film_clock >= duration:
+		_stop_film_preview()
+
+func _film_duration() -> float:
+	var duration := 0.0
+	for marker in camera_markers:
+		duration = maxf(duration, float(marker.get("time", 0.0)))
+	for cue in subtitle_cues:
+		duration = maxf(duration, float(cue.get("time", 0.0)) + float(cue.get("duration", 3.0)))
+	if animation_player != null:
+		var library := animation_player.get_animation_library("")
+		if library != null:
+			var anim := library.get_animation("Take 001")
+			if anim != null:
+				duration = maxf(duration, anim.length)
+	return duration
+
+func _play_film_preview() -> void:
+	if camera_markers.is_empty() and subtitle_cues.is_empty() and (animation_player == null or animation_player.get_animation("Take 001").get_track_count() == 0):
+		_set_status("Add camera markers, subtitle cues or transform keys first.")
+		return
+	film_clock = 0.0
+	film_playing = true
+	if animation_player != null and animation_player.get_animation("Take 001").get_track_count() > 0:
+		animation_player.play("Take 001")
+	_set_status("Film preview playing")
+
+func _stop_film_preview() -> void:
+	film_playing = false
+	if animation_player != null:
+		animation_player.stop()
+	if audio_player != null and audio_player.playing:
+		audio_player.stop()
+	_set_status("Film preview stopped")
+
+func _update_film_camera() -> void:
+	if camera_markers.is_empty():
+		return
+	var markers := camera_markers.duplicate(true)
+	markers.sort_custom(func(a: Dictionary, b: Dictionary): return float(a.get("time", 0.0)) < float(b.get("time", 0.0)))
+	var before: Dictionary = markers[0]
+	var after: Dictionary = markers[markers.size() - 1]
+	for marker in markers:
+		if float(marker.get("time", 0.0)) <= film_clock:
+			before = marker
+		if float(marker.get("time", 0.0)) >= film_clock:
+			after = marker
+			break
+	var start_time := float(before.get("time", 0.0))
+	var end_time := float(after.get("time", start_time))
+	var weight := 0.0
+	if end_time > start_time:
+		weight = clampf((film_clock - start_time) / (end_time - start_time), 0.0, 1.0)
+	var p1: Array = before.get("position", [0.0, 2.5, camera_distance])
+	var p2: Array = after.get("position", p1)
+	var r1: Array = before.get("rotation", [0.0, 0.0, 0.0])
+	var r2: Array = after.get("rotation", r1)
+	camera.position = Vector3(float(p1[0]), float(p1[1]), float(p1[2])).lerp(Vector3(float(p2[0]), float(p2[1]), float(p2[2])), weight)
+	camera.rotation = Vector3(float(r1[0]), float(r1[1]), float(r1[2])).lerp(Vector3(float(r2[0]), float(r2[1]), float(r2[2])), weight)
+
+func _update_subtitle_preview() -> void:
+	if subtitle_preview == null:
+		return
+	var active_text := ""
+	for cue in subtitle_cues:
+		var start := float(cue.get("time", 0.0))
+		var finish := start + float(cue.get("duration", 3.0))
+		if film_clock >= start and film_clock <= finish:
+			active_text = str(cue.get("text", ""))
+			break
+	subtitle_preview.text = active_text
+
+func _open_audio_import() -> void:
+	audio_dialog.popup_centered_ratio(0.8)
+
+func _import_audio(path: String) -> void:
+	var bytes := FileAccess.get_file_as_bytes(path)
+	if bytes.is_empty():
+		_set_status("Audio file is empty or could not be read.")
+		return
+	var extension := path.get_extension().to_lower()
+	var stream: AudioStream
+	match extension:
+		"wav":
+			var wav := AudioStreamWAV.new()
+			wav.data = bytes
+			stream = wav
+		"mp3":
+			var mp3 := AudioStreamMP3.new()
+			mp3.data = bytes
+			stream = mp3
+		"ogg":
+			var ogg := AudioStreamOggVorbis.new()
+			ogg.packet_sequence = OggPacketSequence.new()
+			_set_status("OGG import requires a Godot-imported resource; use WAV or MP3 for direct file import.")
+			return
+		_:
+			_set_status("Unsupported audio format.")
+			return
+	audio_player.stream = stream
+	audio_file_path = path
+	_set_status("Audio loaded: " + path.get_file())
+
+func _play_audio() -> void:
+	if audio_player == null or audio_player.stream == null:
+		_set_status("Import a WAV or MP3 audio file first.")
+		return
+	audio_player.play()
+	_set_status("Audio playback started")
+
+func _stop_audio() -> void:
+	if audio_player != null:
+		audio_player.stop()
+		_set_status("Audio playback stopped")
 
 
 func _duplicate_selected() -> void:
