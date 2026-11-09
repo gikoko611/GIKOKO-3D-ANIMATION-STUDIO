@@ -21,6 +21,9 @@ var sculpt_enabled := false
 var sculpt_brush := "Clay"
 var sculpt_radius := 0.42
 var sculpt_strength := 0.12
+var sculpt_undo_stack: Array[ArrayMesh] = []
+var sculpt_redo_stack: Array[ArrayMesh] = []
+const SCULPT_HISTORY_LIMIT := 20
 
 func _ready() -> void:
 	_build_world()
@@ -154,6 +157,8 @@ func _build_ui() -> void:
 		sculpt_enabled = not sculpt_enabled
 		_set_status("Sculpt touch " + ("enabled" if sculpt_enabled else "disabled"))
 	)
+	_add_button(side, "Undo Sculpt", _undo_sculpt)
+	_add_button(side, "Redo Sculpt", _redo_sculpt)
 	var note := Label.new()
 	note.text = "AI generation runs on a hosted GPU service. Import the resulting GLB/OBJ here."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -346,6 +351,12 @@ func _apply_sculpt_brush(world_hit: Vector3) -> void:
 	var mesh := mesh_instance.mesh as ArrayMesh
 	if mesh.get_surface_count() == 0:
 		return
+	var snapshot := mesh.duplicate(true) as ArrayMesh
+	if snapshot != null:
+		sculpt_undo_stack.append(snapshot)
+		if sculpt_undo_stack.size() > SCULPT_HISTORY_LIMIT:
+			sculpt_undo_stack.pop_front()
+		sculpt_redo_stack.clear()
 	var arrays := mesh.surface_get_arrays(0)
 	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	var local_hit := mesh_instance.to_local(world_hit)
@@ -384,3 +395,21 @@ func _apply_sculpt_brush(world_hit: Vector3) -> void:
 	material.roughness = 0.55
 	mesh_instance.mesh = rebuilt
 	mesh_instance.material_override = material
+
+func _undo_sculpt() -> void:
+	var mesh_instance := selected_object.get_child(0) as MeshInstance3D if selected_object != null else null
+	if mesh_instance == null or not (mesh_instance.mesh is ArrayMesh) or sculpt_undo_stack.is_empty():
+		_set_status("No sculpt action to undo")
+		return
+	sculpt_redo_stack.append((mesh_instance.mesh as ArrayMesh).duplicate(true) as ArrayMesh)
+	mesh_instance.mesh = sculpt_undo_stack.pop_back()
+	_set_status("Sculpt action undone")
+
+func _redo_sculpt() -> void:
+	var mesh_instance := selected_object.get_child(0) as MeshInstance3D if selected_object != null else null
+	if mesh_instance == null or not (mesh_instance.mesh is ArrayMesh) or sculpt_redo_stack.is_empty():
+		_set_status("No sculpt action to redo")
+		return
+	sculpt_undo_stack.append((mesh_instance.mesh as ArrayMesh).duplicate(true) as ArrayMesh)
+	mesh_instance.mesh = sculpt_redo_stack.pop_back()
+	_set_status("Sculpt action redone")
