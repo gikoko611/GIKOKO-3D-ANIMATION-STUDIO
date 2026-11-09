@@ -291,3 +291,96 @@ func _open_ai_help() -> void:
 func _set_status(message: String) -> void:
 	if is_instance_valid(status_label):
 		status_label.text = message
+
+
+func _add_sculpt_sphere() -> void:
+	var sphere := SphereMesh.new()
+	sphere.radius = 1.0
+	sphere.height = 2.0
+	sphere.radial_segments = 32
+	sphere.rings = 20
+	var surface := SurfaceTool.new()
+	surface.create_from(sphere, 0)
+	var editable_mesh: ArrayMesh = surface.commit()
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.mesh = editable_mesh
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color("#39dca4")
+	material.metallic = 0.12
+	material.roughness = 0.55
+	mesh_instance.material_override = material
+	var holder := Node3D.new()
+	holder.name = "SculptSphere_%02d" % (object_root.get_child_count() + 1)
+	holder.add_child(mesh_instance)
+	var body := StaticBody3D.new()
+	body.name = "SculptCollider"
+	var collision := CollisionShape3D.new()
+	var shape := SphereShape3D.new()
+	shape.radius = 1.0
+	collision.shape = shape
+	body.add_child(collision)
+	holder.add_child(body)
+	object_root.add_child(holder)
+	selected_object = holder
+	sculpt_enabled = true
+	_set_status("Sculpt sphere ready • drag on the model to apply " + sculpt_brush)
+
+func _on_viewport_input(event: InputEvent) -> void:
+	if not sculpt_enabled or selected_object == null or viewport_3d == null:
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var origin := camera.project_ray_origin(event.position)
+		var direction := camera.project_ray_normal(event.position)
+		var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * 100.0)
+		var hit := viewport_3d.get_world_3d().direct_space_state.intersect_ray(query)
+		if not hit.is_empty():
+			var collider := hit.collider as StaticBody3D
+			if collider != null and collider.get_parent() == selected_object:
+				_apply_sculpt_brush(hit.position)
+				_set_status(sculpt_brush + " brush applied")
+
+func _apply_sculpt_brush(world_hit: Vector3) -> void:
+	var mesh_instance := selected_object.get_child(0) as MeshInstance3D
+	if mesh_instance == null or not (mesh_instance.mesh is ArrayMesh):
+		return
+	var mesh := mesh_instance.mesh as ArrayMesh
+	if mesh.get_surface_count() == 0:
+		return
+	var arrays := mesh.surface_get_arrays(0)
+	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var local_hit := mesh_instance.to_local(world_hit)
+	for i in range(vertices.size()):
+		var point: Vector3 = vertices[i]
+		var distance := point.distance_to(local_hit)
+		if distance > sculpt_radius:
+			continue
+		var falloff := 1.0 - (distance / sculpt_radius)
+		falloff = falloff * falloff
+		var radial := point.normalized()
+		var amount := sculpt_strength * falloff
+		match sculpt_brush:
+			"Standard", "Clay", "Inflate":
+				vertices[i] = point + radial * amount
+			"Crease":
+				vertices[i] = point - radial * amount * 0.8
+			"Flatten":
+				vertices[i] = point.lerp(radial * local_hit.length(), amount)
+			"Move":
+				vertices[i] = point + local_hit.normalized() * amount
+			"Smooth":
+				vertices[i] = point.lerp(radial, amount * 0.35)
+			"Mask":
+				pass
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	var normals := PackedVector3Array()
+	normals.resize(vertices.size())
+	for i in range(vertices.size()):
+		normals[i] = vertices[i].normalized()
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	var rebuilt := ArrayMesh.new()
+	rebuilt.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color("#39dca4")
+	material.roughness = 0.55
+	mesh_instance.mesh = rebuilt
+	mesh_instance.material_override = material
