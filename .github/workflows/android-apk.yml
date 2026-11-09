@@ -72,6 +72,8 @@ jobs:
           export/android/debug_keystore_user = "androiddebugkey"
           export/android/debug_keystore_pass = "android"
           EOF
+          echo "SDK packages:"
+          ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools" "$ANDROID_HOME/ndk" "$ANDROID_HOME/cmake"
 
       - name: Verify project files
         run: |
