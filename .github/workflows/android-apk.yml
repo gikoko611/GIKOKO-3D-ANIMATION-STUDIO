@@ -36,7 +36,7 @@ jobs:
       - name: Configure Android SDK and Java
         run: |
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          sdkmanager "platform-tools" "platforms;android-29" "build-tools;29.0.3"
           JAVA_BIN="$(command -v javac)"
           JAVA_HOME_DIR="$(dirname "$(dirname "$(readlink -f "$JAVA_BIN")")")"
           mkdir -p "$HOME/.config/godot"
@@ -54,11 +54,6 @@ jobs:
       - name: Validate project
         run: godot --headless --path . --editor --quit
 
-      - name: Install Android build template
-        run: |
-          timeout 5m godot --headless --editor --path . --install-android-build-template --quit
-          test -d android/build || test -f android/build.gradle || true
-
       - name: Export Android ARMv7 APK
         run: |
           godot --headless --path . --verbose --export-debug "Android ARMv7" build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
@@ -66,8 +61,8 @@ jobs:
       - name: Verify APK
         run: |
           test -s build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
-          "$ANDROID_HOME/build-tools/33.0.2/aapt" dump badging build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
-          "$ANDROID_HOME/build-tools/33.0.2/apksigner" verify build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
+          "$ANDROID_HOME/build-tools/29.0.3/aapt" dump badging build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
+          "$ANDROID_HOME/build-tools/29.0.3/apksigner" verify build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
 
       - name: Publish v0.0.1 GitHub Release
         uses: softprops/action-gh-release@v2
