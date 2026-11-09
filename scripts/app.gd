@@ -204,7 +204,7 @@ func _open_export() -> void:
 func _export_model(path: String) -> void:
 	var document := GLTFDocument.new()
 	var state := GLTFState.new()
-	var error := document.append_from_node(object_root, state)
+	var error: int = document.append_from_node(object_root, state)
 	if error != OK:
 		_set_status("Export preparation failed: " + error_string(error))
 		return
