@@ -63,6 +63,15 @@ jobs:
           "$ANDROID_HOME/build-tools/33.0.2/aapt" dump badging build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
           "$ANDROID_HOME/build-tools/33.0.2/apksigner" verify build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
 
+      - name: Publish v0.0.1 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.0.1
+          name: G.I KO KO 3D ANIMATION STUDIO v0.0.1
+          files: build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
+          overwrite_files: true
+          make_latest: true
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
