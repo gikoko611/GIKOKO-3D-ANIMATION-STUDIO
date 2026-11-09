@@ -86,6 +86,7 @@ func _build_ui() -> void:
 	_add_button(toolbar, "Import 3D", _open_import)
 	_add_button(toolbar, "Export GLB", _open_export)
 	_add_button(toolbar, "Save Project", _save_project)
+	_add_button(toolbar, "Load Project", _load_project)
 	var body := HBoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(body)
@@ -262,17 +263,75 @@ func _export_model(path: String) -> void:
 	_set_status("Exported GLB" if error == OK else "Export failed: " + error_string(error))
 
 func _save_project() -> void:
-	var data := {"version": 1, "objects": []}
+	var data := {"version": 2, "objects": []}
 	for child in object_root.get_children():
-		data.objects.append({"name": child.name, "position": var_to_str(child.position), "rotation": var_to_str(child.rotation), "scale": var_to_str(child.scale)})
+		var mesh_kind := "Imported"
+		if child.get_child_count() > 0 and child.get_child(0) is MeshInstance3D:
+			var mesh := (child.get_child(0) as MeshInstance3D).mesh
+			if mesh is BoxMesh:
+				mesh_kind = "Box"
+			elif mesh is SphereMesh:
+				mesh_kind = "Sphere"
+			elif mesh is CapsuleMesh:
+				mesh_kind = "Capsule"
+			elif child.name.begins_with("SculptSphere"):
+				mesh_kind = "SculptSphere"
+		data.objects.append({
+			"name": child.name,
+			"type": mesh_kind,
+			"position": [child.position.x, child.position.y, child.position.z],
+			"rotation": [child.rotation.x, child.rotation.y, child.rotation.z],
+			"scale": [child.scale.x, child.scale.y, child.scale.z]
+		})
 	var path := "user://gi_koko_project.json"
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
-		_set_status("Project save failed.")
+		_set_status("Project save failed: " + error_string(FileAccess.get_open_error()))
 		return
-	file.store_string(JSON.stringify(data, "\t"))
+	file.store_string(JSON.stringify(data, "\\t"))
 	file.close()
-	_set_status("Project saved on this device")
+	_set_status("Project saved on this device • " + str(data.objects.size()) + " objects")
+
+func _load_project() -> void:
+	var path := "user://gi_koko_project.json"
+	if not FileAccess.file_exists(path):
+		_set_status("No saved project found on this device.")
+		return
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		_set_status("Project load failed: " + error_string(FileAccess.get_open_error()))
+		return
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	if typeof(parsed) != TYPE_DICTIONARY or not parsed.has("objects") or typeof(parsed.objects) != TYPE_ARRAY:
+		_set_status("Saved project file is invalid.")
+		return
+	for child in object_root.get_children():
+		child.queue_free()
+	selected_object = null
+	for item in parsed.objects:
+		if typeof(item) != TYPE_DICTIONARY:
+			continue
+		var kind := str(item.get("type", "Box"))
+		if kind == "Imported":
+			continue
+		if kind == "SculptSphere":
+			_add_sculpt_sphere()
+		else:
+			_add_primitive(kind)
+		var node := object_root.get_child(object_root.get_child_count() - 1) as Node3D
+		node.name = str(item.get("name", kind))
+		var p: Array = item.get("position", [0.0, 0.0, 0.0])
+		var r: Array = item.get("rotation", [0.0, 0.0, 0.0])
+		var s: Array = item.get("scale", [1.0, 1.0, 1.0])
+		if p.size() == 3:
+			node.position = Vector3(float(p[0]), float(p[1]), float(p[2]))
+		if r.size() == 3:
+			node.rotation = Vector3(float(r[0]), float(r[1]), float(r[2]))
+		if s.size() == 3:
+			node.scale = Vector3(float(s[0]), float(s[1]), float(s[2]))
+		selected_object = node
+	_set_status("Project loaded • " + str(object_root.get_child_count()) + " objects")
 
 func _focus_selected() -> void:
 	if selected_object:
