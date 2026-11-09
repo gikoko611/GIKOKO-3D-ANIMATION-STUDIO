@@ -19,6 +19,7 @@ jobs:
   build:
     name: Build Android ARMv7 APK
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     container:
       image: barichello/godot-ci:4.3
     steps:
@@ -31,9 +32,6 @@ jobs:
           wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz -O /tmp/godot-templates.tpz
           unzip -oq /tmp/godot-templates.tpz -d /tmp/godot-templates
           cp -a /tmp/godot-templates/templates/. "$HOME/.local/share/godot/export_templates/4.3.stable/"
-
-      - name: Install project Android build template
-        run: godot --headless --editor --path . --install-android-build-template
 
       - name: Configure Android SDK and Java
         run: |
@@ -56,9 +54,9 @@ jobs:
       - name: Validate project
         run: godot --headless --path . --editor --quit
 
-      - name: Export APK
+      - name: Install Android template and export APK
         run: |
-          godot --headless --path . --export-debug "Android ARMv7" build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
+          timeout 12m godot --headless --path . --install-android-build-template --export-debug "Android ARMv7" build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
 
       - name: Verify APK
         run: |
