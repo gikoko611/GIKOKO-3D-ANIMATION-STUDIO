@@ -17,6 +17,9 @@ var orbit_angle := 0.7
 var camera_distance := 6.0
 var selected_object: Node3D
 var viewport_3d: SubViewport
+var animation_player: AnimationPlayer
+var timeline_slider: HSlider
+var timeline_time := 0.0
 var sculpt_enabled := false
 var sculpt_brush := "Clay"
 var sculpt_radius := 0.42
@@ -56,6 +59,13 @@ func _build_world() -> void:
 	camera.look_at(Vector3.ZERO)
 	world.add_child(camera)
 	camera.current = true
+	animation_player = AnimationPlayer.new()
+	animation_player.name = "StudioAnimationPlayer"
+	animation_player.root_node = NodePath("..")
+	world.add_child(animation_player)
+	var animation_library := AnimationLibrary.new()
+	animation_library.add_animation("Take 001", Animation.new())
+	animation_player.add_animation_library("", animation_library)
 
 func _build_ui() -> void:
 	var root := VBoxContainer.new()
@@ -160,6 +170,29 @@ func _build_ui() -> void:
 	)
 	_add_button(side, "Undo Sculpt", _undo_sculpt)
 	_add_button(side, "Redo Sculpt", _redo_sculpt)
+	var animation_title := Label.new()
+	animation_title.text = "ANIMATION TIMELINE"
+	animation_title.add_theme_color_override("font_color", BLUE)
+	side.add_child(animation_title)
+	var time_label := Label.new()
+	time_label.text = "Time: 0.00s"
+	side.add_child(time_label)
+	timeline_slider = HSlider.new()
+	timeline_slider.min_value = 0.0
+	timeline_slider.max_value = 5.0
+	timeline_slider.step = 0.1
+	timeline_slider.value = 0.0
+	timeline_slider.value_changed.connect(func(value: float):
+		timeline_time = value
+		time_label.text = "Time: %.2fs" % value
+		if animation_player != null and animation_player.is_playing():
+			animation_player.pause()
+			animation_player.seek(value, true)
+	)
+	side.add_child(timeline_slider)
+	_add_button(side, "＋ Set Transform Key", _add_transform_key)
+	_add_button(side, "▶ Play Animation", _play_animation)
+	_add_button(side, "■ Stop Animation", _stop_animation)
 	var note := Label.new()
 	note.text = "AI generation runs on a hosted GPU service. Import the resulting GLB/OBJ here."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -348,6 +381,50 @@ func _scale_selected(factor: float) -> void:
 	if selected_object:
 		selected_object.scale *= factor
 		_set_status("Object scaled")
+
+func _add_transform_key() -> void:
+	if selected_object == null or animation_player == null:
+		_set_status("Select an object before setting a keyframe.")
+		return
+	var library := animation_player.get_animation_library("")
+	if library == null:
+		return
+	var animation := library.get_animation("Take 001")
+	if animation == null:
+		return
+	var target_path := NodePath("Assets/" + str(selected_object.name))
+	var properties := ["position", "rotation", "scale"]
+	for property in properties:
+		var track_path := NodePath(str(target_path) + ":" + property)
+		var track_index := -1
+		for index in range(animation.get_track_count()):
+			if animation.track_get_path(index) == track_path:
+				track_index = index
+				break
+		if track_index == -1:
+			track_index = animation.add_track(Animation.TYPE_VALUE)
+			animation.track_set_path(track_index, track_path)
+			animation.value_track_set_update_mode(track_index, Animation.UPDATE_CONTINUOUS)
+		var value: Variant = selected_object.get(property)
+		var key_index := animation.track_find_key(track_index, timeline_time, true)
+		if key_index >= 0:
+			animation.track_remove_key(track_index, key_index)
+		animation.track_insert_key(track_index, timeline_time, value)
+	animation.length = maxf(animation.length, timeline_time + 0.1)
+	_set_status("Transform keyframe set at %.2fs" % timeline_time)
+
+func _play_animation() -> void:
+	if animation_player == null:
+		return
+	animation_player.stop()
+	animation_player.play("Take 001")
+	_set_status("Playing Take 001")
+
+func _stop_animation() -> void:
+	if animation_player == null:
+		return
+	animation_player.stop()
+	_set_status("Animation stopped")
 
 func _open_ai_help() -> void:
 	_set_status("Open the free TripoSR demo in your browser, generate a model, then import its GLB.")
