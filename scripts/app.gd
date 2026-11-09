@@ -229,6 +229,7 @@ func _build_ui() -> void:
 	)
 	side.add_child(timeline_slider)
 	_add_button(side, "＋ Set Transform Key", _add_transform_key)
+	_add_button(side, "＋ Set Rig Pose Key", _add_rig_pose_key)
 	_add_button(side, "▶ Play Animation", _play_animation)
 	_add_button(side, "■ Stop Animation", _stop_animation)
 	var rig_title := Label.new()
@@ -677,6 +678,39 @@ func _pose_arms_up() -> void:
 	_set_rig_joint_rotation("Shoulder_L", 150.0)
 	_set_rig_joint_rotation("Shoulder_R", -150.0)
 	_set_status("Arms-up pose applied")
+
+func _add_rig_pose_key() -> void:
+	if not is_instance_valid(rig_root) or rig_joints.is_empty():
+		_set_status("Create a Quick Rig and pose its joints first.")
+		return
+	var library := animation_player.get_animation_library("")
+	if library == null:
+		_set_status("Animation library is unavailable.")
+		return
+	var animation := library.get_animation("Take 001")
+	if animation == null:
+		_set_status("Take 001 animation is unavailable.")
+		return
+	var keyed_count := 0
+	for joint_name in rig_joints.keys():
+		var joint := rig_joints[joint_name] as Node3D
+		var track_path := NodePath("Assets/" + str(rig_root.name) + "/" + str(joint_name) + ":rotation")
+		var track_index := -1
+		for index in range(animation.get_track_count()):
+			if animation.track_get_path(index) == track_path:
+				track_index = index
+				break
+		if track_index == -1:
+			track_index = animation.add_track(Animation.TYPE_VALUE)
+			animation.track_set_path(track_index, track_path)
+			animation.value_track_set_update_mode(track_index, Animation.UPDATE_CONTINUOUS)
+		var key_index := animation.track_find_key(track_index, timeline_time, true)
+		if key_index >= 0:
+			animation.track_remove_key(track_index, key_index)
+		animation.track_insert_key(track_index, timeline_time, joint.rotation)
+		keyed_count += 1
+	animation.length = maxf(animation.length, timeline_time + 0.1)
+	_set_status("Rig pose key saved • %d joints at %.2fs" % [keyed_count, timeline_time])
 
 func _play_animation() -> void:
 	if animation_player == null:
