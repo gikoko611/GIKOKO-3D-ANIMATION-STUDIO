@@ -20,6 +20,11 @@ var viewport_3d: SubViewport
 var animation_player: AnimationPlayer
 var timeline_slider: HSlider
 var timeline_time := 0.0
+var camera_markers: Array[Dictionary] = []
+var subtitle_cues: Array[Dictionary] = []
+var subtitle_dialog: AcceptDialog
+var subtitle_input: LineEdit
+var srt_dialog: FileDialog
 var sculpt_enabled := false
 var sculpt_brush := "Clay"
 var sculpt_radius := 0.42
@@ -193,6 +198,16 @@ func _build_ui() -> void:
 	_add_button(side, "＋ Set Transform Key", _add_transform_key)
 	_add_button(side, "▶ Play Animation", _play_animation)
 	_add_button(side, "■ Stop Animation", _stop_animation)
+	var film_title := Label.new()
+	film_title.text = "FILM MAKER"
+	film_title.add_theme_color_override("font_color", GOLD)
+	side.add_child(film_title)
+	_add_button(side, "＋ Camera Marker", _add_camera_marker)
+	_add_button(side, "＋ Subtitle Cue", _open_subtitle_dialog)
+	_add_button(side, "Export Subtitles (SRT)", _open_srt_export)
+	_add_button(side, "Duplicate Object", _duplicate_selected)
+	_add_button(side, "Delete Object", _delete_selected)
+	_add_button(side, "Reset Transform", _reset_selected)
 	var note := Label.new()
 	note.text = "AI generation runs on a hosted GPU service. Import the resulting GLB/OBJ here."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -214,6 +229,22 @@ func _build_ui() -> void:
 	export_dialog.add_filter("*.glb", "GLB Model")
 	export_dialog.file_selected.connect(_export_model)
 	add_child(export_dialog)
+	subtitle_dialog = AcceptDialog.new()
+	subtitle_dialog.title = "Add Subtitle Cue"
+	subtitle_dialog.dialog_text = "Subtitle text (time uses the current timeline position):"
+	subtitle_input = LineEdit.new()
+	subtitle_input.placeholder_text = "Enter dialogue / subtitle..."
+	subtitle_input.custom_minimum_size.x = 320
+	subtitle_dialog.add_child(subtitle_input)
+	subtitle_dialog.confirmed.connect(_add_subtitle_cue)
+	add_child(subtitle_dialog)
+	srt_dialog = FileDialog.new()
+	srt_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	srt_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	srt_dialog.add_filter("*.srt", "SubRip subtitles")
+	srt_dialog.current_file = "GI_KO_KO_Subtitles.srt"
+	srt_dialog.file_selected.connect(_export_srt)
+	add_child(srt_dialog)
 	_apply_theme(self)
 
 func _apply_theme(node: Control) -> void:
@@ -296,7 +327,7 @@ func _export_model(path: String) -> void:
 	_set_status("Exported GLB" if error == OK else "Export failed: " + error_string(error))
 
 func _save_project() -> void:
-	var data := {"version": 2, "objects": []}
+	var data := {"version": 3, "objects": [], "camera_markers": camera_markers, "subtitles": subtitle_cues}
 	for child in object_root.get_children():
 		var mesh_kind := "Imported"
 		if child.name.begins_with("SculptSphere"):
@@ -343,6 +374,14 @@ func _load_project() -> void:
 		object_root.remove_child(child)
 		child.free()
 	selected_object = null
+	camera_markers.clear()
+	subtitle_cues.clear()
+	for marker in parsed.get("camera_markers", []):
+		if typeof(marker) == TYPE_DICTIONARY:
+			camera_markers.append(marker)
+	for cue in parsed.get("subtitles", []):
+		if typeof(cue) == TYPE_DICTIONARY:
+			subtitle_cues.append(cue)
 	sculpt_undo_stack.clear()
 	sculpt_redo_stack.clear()
 	for item in parsed.objects:
@@ -427,6 +466,89 @@ func _stop_animation() -> void:
 		return
 	animation_player.stop()
 	_set_status("Animation stopped")
+
+
+func _duplicate_selected() -> void:
+	if selected_object == null:
+		_set_status("Select or create an object first.")
+		return
+	var copy := selected_object.duplicate() as Node3D
+	if copy == null:
+		return
+	copy.name = selected_object.name + "_Copy"
+	copy.position += Vector3(0.35, 0.0, 0.35)
+	object_root.add_child(copy)
+	selected_object = copy
+	_set_status("Object duplicated")
+
+func _delete_selected() -> void:
+	if selected_object == null:
+		_set_status("No selected object to delete.")
+		return
+	var doomed := selected_object
+	selected_object = null
+	object_root.remove_child(doomed)
+	doomed.queue_free()
+	_set_status("Object deleted")
+
+func _reset_selected() -> void:
+	if selected_object == null:
+		_set_status("No selected object.")
+		return
+	selected_object.position = Vector3.ZERO
+	selected_object.rotation = Vector3.ZERO
+	selected_object.scale = Vector3.ONE
+	_set_status("Transform reset")
+
+func _add_camera_marker() -> void:
+	camera_markers.append({
+		"time": timeline_time,
+		"position": [camera.position.x, camera.position.y, camera.position.z],
+		"rotation": [camera.rotation.x, camera.rotation.y, camera.rotation.z]
+	})
+	_set_status("Camera marker saved at %.2fs • %d markers" % [timeline_time, camera_markers.size()])
+
+func _open_subtitle_dialog() -> void:
+	subtitle_input.text = ""
+	subtitle_dialog.popup_centered()
+
+func _add_subtitle_cue() -> void:
+	var line := subtitle_input.text.strip_edges()
+	if line.is_empty():
+		_set_status("Subtitle text is empty.")
+		return
+	subtitle_cues.append({"time": timeline_time, "duration": 3.0, "text": line})
+	_set_status("Subtitle cue added at %.2fs • %d cues" % [timeline_time, subtitle_cues.size()])
+
+func _open_srt_export() -> void:
+	srt_dialog.popup_centered_ratio(0.8)
+
+func _export_srt(path: String) -> void:
+	var cues := subtitle_cues.duplicate(true)
+	cues.sort_custom(func(a: Dictionary, b: Dictionary): return float(a.get("time", 0.0)) < float(b.get("time", 0.0)))
+	var output := ""
+	for i in range(cues.size()):
+		var start := float(cues[i].get("time", 0.0))
+		var finish := start + maxf(0.5, float(cues[i].get("duration", 3.0)))
+		output += str(i + 1) + "\\n"
+		output += _format_srt_time(start) + " --> " + _format_srt_time(finish) + "\\n"
+		output += str(cues[i].get("text", "")) + "\\n\\n"
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		_set_status("SRT export failed: " + error_string(FileAccess.get_open_error()))
+		return
+	file.store_string(output)
+	file.close()
+	_set_status("SRT exported • %d subtitle cues" % cues.size())
+
+func _format_srt_time(seconds: float) -> String:
+	var total_ms := int(maxf(0.0, seconds) * 1000.0)
+	var hours := int(total_ms / 3600000)
+	var minutes := int((total_ms % 3600000) / 60000)
+	var secs := int((total_ms % 60000) / 1000)
+	var millis := total_ms % 1000
+	return "%02d:%02d:%02d,%03d" % [hours, minutes, secs, millis]
+
 
 func _open_ai_help() -> void:
 	_set_status("Open the free TripoSR demo in your browser, generate a model, then import its GLB.")
