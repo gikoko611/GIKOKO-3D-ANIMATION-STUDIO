@@ -788,7 +788,7 @@ func _delete_rig_key_at_time() -> void:
 	for track_index in range(animation.get_track_count()):
 		if not str(animation.track_get_path(track_index)).begins_with(prefix):
 			continue
-		for key_index in range(animation.get_track_key_count(track_index) - 1, -1, -1):
+		for key_index in range(animation.track_get_key_count(track_index) - 1, -1, -1):
 			if absf(animation.track_get_key_time(track_index, key_index) - timeline_time) <= 0.06:
 				animation.track_remove_key(track_index, key_index)
 				removed += 1
