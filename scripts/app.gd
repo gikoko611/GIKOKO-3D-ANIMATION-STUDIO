@@ -184,7 +184,7 @@ func _import_model(path: String) -> void:
 		return
 	var document := GLTFDocument.new()
 	var state := GLTFState.new()
-	var error := document.append_from_file(path, state)
+	var error: Error = document.append_from_file(path, state)
 	if error != OK:
 		_set_status("Import failed: " + error_string(error))
 		return
@@ -204,7 +204,7 @@ func _open_export() -> void:
 func _export_model(path: String) -> void:
 	var document := GLTFDocument.new()
 	var state := GLTFState.new()
-	var error := document.append_from_node(object_root, state)
+	var error: Error = document.append_from_node(object_root, state)
 	if error != OK:
 		_set_status("Export preparation failed: " + error_string(error))
 		return
