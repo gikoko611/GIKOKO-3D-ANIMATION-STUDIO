@@ -18,7 +18,8 @@ Phone-first 3D modeling, sculpting and animation-film workspace powered by **God
 - GLB / GLTF import and GLB export foundation
 - Object focus, rotate, scale, duplicate, delete and reset-transform controls
 - Local JSON project save/load for supported primitive and sculpt-sphere object transforms, plus camera-marker and subtitle-cue metadata
-- Film Maker starter tools: timeline camera-marker capture, subtitle cue entry and SubRip (SRT) export
+- Film Maker starter tools: timeline camera-marker capture and interpolation preview, live subtitle preview, subtitle cue entry and SubRip (SRT) export
+- Basic audio import and playback for WAV / MP3 files; OGG direct-file import and multitrack mixing are not implemented
 - Android ARMv7 export preset
 - GitHub Actions workflow on the `godot-migration` branch
 
@@ -29,8 +30,8 @@ The current Godot app is a **starter foundation**, not yet feature-complete. A b
 1. **Sculpt Studio:** Standard, Clay, Smooth, Inflate, Move, Flatten, Crease and Mask brushes; brush size/strength; undo/redo; save/load; subdivision and remesh research.
 2. **3D asset pipeline:** GLB/GLTF import/export, material editing, asset library and safe model selection.
 3. **Character Studio:** humanoid skeleton, skinning, IK, retargeting and editable animation clips.
-4. **Film Maker:** Myanmar scene assets, multi-scene storyboard, camera-marker playback/tracks, full timeline editing and preview. Current camera markers are captured and saved, but not yet interpolated or played back.
-5. **Audio & subtitles:** Myanmar/English dialogue, device TTS integration where supported, voice-over, music/SFX tracks and timed subtitle editing. Basic subtitle cues and SRT export are implemented; audio mixing and TTS are not yet implemented.
+4. **Film Maker:** Myanmar scene assets, multi-scene storyboard, camera-marker playback/tracks, full timeline editing and preview. Camera markers can now be interpolated during a simple film preview. This is not a full nonlinear editor.
+5. **Audio & subtitles:** Myanmar/English dialogue, device TTS integration where supported, voice-over, music/SFX tracks and timed subtitle editing. Basic subtitle cues, live preview and SRT export are implemented; single-file WAV/MP3 playback is available, but audio mixing, waveform editing and TTS are not yet implemented.
 6. **Video output:** memory-aware frame queue, pause/resume, 480p/720p presets, Android encoder integration and audio/video muxing. MP4 export is not implemented yet.
 7. **AI assistance:** optional external image/model/voice providers; API keys remain user-supplied and are never committed.
 
