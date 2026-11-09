@@ -35,8 +35,7 @@ jobs:
 
       - name: Configure Android SDK and Java
         run: |
-          SDKMANAGER_BIN="$(readlink -f "$(command -v sdkmanager)")"
-          SDK_ROOT="$(dirname "$(dirname "$(dirname "$SDKMANAGER_BIN")")")"
+          SDK_ROOT="${ANDROID_HOME:-/usr/lib/android-sdk}"
           export ANDROID_HOME="$SDK_ROOT"
           export ANDROID_SDK_ROOT="$SDK_ROOT"
           yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses >/dev/null || true
