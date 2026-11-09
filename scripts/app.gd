@@ -299,7 +299,9 @@ func _save_project() -> void:
 	var data := {"version": 2, "objects": []}
 	for child in object_root.get_children():
 		var mesh_kind := "Imported"
-		if child.get_child_count() > 0 and child.get_child(0) is MeshInstance3D:
+		if child.name.begins_with("SculptSphere"):
+			mesh_kind = "SculptSphere"
+		elif child.get_child_count() > 0 and child.get_child(0) is MeshInstance3D:
 			var mesh := (child.get_child(0) as MeshInstance3D).mesh
 			if mesh is BoxMesh:
 				mesh_kind = "Box"
@@ -307,8 +309,6 @@ func _save_project() -> void:
 				mesh_kind = "Sphere"
 			elif mesh is CapsuleMesh:
 				mesh_kind = "Capsule"
-			elif child.name.begins_with("SculptSphere"):
-				mesh_kind = "SculptSphere"
 		data.objects.append({
 			"name": child.name,
 			"type": mesh_kind,
@@ -321,7 +321,7 @@ func _save_project() -> void:
 	if file == null:
 		_set_status("Project save failed: " + error_string(FileAccess.get_open_error()))
 		return
-	file.store_string(JSON.stringify(data, "\\t"))
+	file.store_string(JSON.stringify(data, "\t"))
 	file.close()
 	_set_status("Project saved on this device • " + str(data.objects.size()) + " objects")
 
@@ -343,6 +343,8 @@ func _load_project() -> void:
 		object_root.remove_child(child)
 		child.free()
 	selected_object = null
+	sculpt_undo_stack.clear()
+	sculpt_redo_stack.clear()
 	for item in parsed.objects:
 		if typeof(item) != TYPE_DICTIONARY:
 			continue
