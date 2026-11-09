@@ -35,8 +35,12 @@ jobs:
 
       - name: Configure Android SDK and Java
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          SDKMANAGER_BIN="$(readlink -f "$(command -v sdkmanager)")"
+          SDK_ROOT="$(dirname "$(dirname "$(dirname "$SDKMANAGER_BIN")")")"
+          export ANDROID_HOME="$SDK_ROOT"
+          export ANDROID_SDK_ROOT="$SDK_ROOT"
+          yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses >/dev/null || true
+          sdkmanager --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
           JAVA_BIN="$(command -v javac)"
           JAVA_HOME_DIR="$(dirname "$(dirname "$(readlink -f "$JAVA_BIN")")")"
           mkdir -p "$HOME/.config/godot"
@@ -44,8 +48,12 @@ jobs:
           [gd_resource type="EditorSettings" format=3]
           [resource]
           export/android/java_sdk_path = "$JAVA_HOME_DIR"
-          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/android_sdk_path = "$SDK_ROOT"
           EOF
+          test -f "$SDK_ROOT/platforms/android-34/android.jar"
+          test -x "$SDK_ROOT/build-tools/34.0.0/aapt"
+          test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
+          test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_release.apk"
           keytool -genkeypair -v -keystore "$HOME/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -noprompt
 
       - name: Prepare output
