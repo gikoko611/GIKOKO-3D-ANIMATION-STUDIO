@@ -56,7 +56,7 @@ jobs:
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" --licenses >/dev/null
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" "platform-tools" "platforms;android-34" "build-tools;34.0.0" "cmake;3.10.2.4988404" "ndk;23.2.8568313"
 
       - name: Configure Godot Android export
         run: |
@@ -81,9 +81,15 @@ jobs:
         run: godot --headless --path . --editor --quit
 
       - name: Export Android ARMv7 APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/.ci/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
-          mkdir -p build
-          godot --headless --path . --export-debug "Android ARMv7" build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
+          mkdir -p build .ci
+          cp "$HOME/.android/debug.keystore" .ci/debug.keystore
+          set -o pipefail
+          godot --headless --verbose --path . --export-debug "Android ARMv7" build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk 2>&1 | tee build/export.log
 
       - name: Verify APK contains ARMv7 native library
         run: |
