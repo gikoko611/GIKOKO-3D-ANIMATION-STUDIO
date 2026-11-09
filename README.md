@@ -1,38 +1,45 @@
 # G.I KO KO 3D ANIMATION STUDIO
 
-Unity 6 phone-first 3D modeling and animation-film workspace.
+Phone-first 3D modeling, sculpting and animation-film workspace powered by **Godot 4**.
 
-## Device target
+## Target device
+- Redmi 9A / Helio G25 class Android phones
 - Android 10+
-- ARMv7 (32-bit) APK for Redmi 9A / Helio G25 class devices
-- IL2CPP, Gamma color space, low-memory 30 FPS preview
-- GitHub Actions build; no local Android SDK, JDK or Unity Editor required on the phone
+- ARMv7 (32-bit) APK as the required compatibility target
+- Godot Compatibility renderer (OpenGL ES 3)
+- Low-memory UI and 30 FPS preview target
+- GitHub Actions builds; no local PC, Unity Hub, Unity license, Android SDK or JDK installation required on the phone
 
-## Implemented foundation in this branch
-- Sculpt workspace retained: Standard, Clay, Smooth, Inflate, Move, Flatten, Crease and Mask brush prototypes
-- Primitive sculpt bases and local sculpt JSON save
-- Film Maker tabs: Scene, Character, Timeline and Export
-- Procedural Myanmar scene blockouts: ground, teak-style house, pagoda, tree and road
-- Procedural humanoid blockout and basic Idle / Walk / Run / Talk / Fight motion previews
-- 5-minute / 10-minute project-duration selection and short interactive motion preview
-- Local film-project JSON save
-- Unity 6 Android ARMv7 IL2CPP build configuration and launcher icon assignment
+## Current Godot foundation
+- Cyber green / blue / gold studio shell
+- 3D viewport and primitive Box / Sphere / Capsule creation
+- GLB / GLTF import and GLB export foundation
+- Object focus, rotate and scale controls
+- Local JSON project save
+- Android ARMv7 export preset
+- GitHub Actions workflow on the `godot-migration` branch
 
-## Important implementation boundary
-The Film Maker tab is an early runtime foundation, not yet a complete production animation editor. Character blockouts are procedural primitives, motion clips are simple transform animation, and the timeline currently previews a short loop while storing the selected target film duration. The Export tab is a render-plan/status screen only: **runtime MP4 encoding, audio mixing, subtitles, real GLB/GLTF import/export, skeletal retargeting, keyframe editing, scene sequencing, and resumable frame rendering are not implemented yet**. Do not treat the 5/10-minute selector as proof that a 5/10-minute MP4 can already be exported.
+## Migration status — important
+The current Godot app is a **starter foundation**, not yet feature-complete. The earlier Unity branch contains prototypes for sculpt brushes, a procedural character/scene film-maker, Android TTS, synthetic sound effects and subtitle controls. Those Unity C# features are not automatically portable to Godot and are not yet all implemented in this Godot branch. Keep the Unity branch intact as a reference until each corresponding Godot feature has been rebuilt and checked.
 
-## Planned next stages
-1. Real GLB/GLTF asset pipeline and Myanmar asset library
-2. Proper character skeletons, skinning, retargeting and editable keyframes
-3. Multi-scene storyboard, camera tracks and timeline sequencing
-4. Dialogue, voice-over, music, SFX and subtitle tracks
-5. Chunked runtime render queue with pause/resume and memory-aware frame scheduling
-6. Android MediaCodec / FFmpeg-based MP4 encoding and final audio/video mux
-7. Optional free-cloud rendering and AI-assisted story/voice workflows
+## Full feature roadmap
+1. **Sculpt Studio:** Standard, Clay, Smooth, Inflate, Move, Flatten, Crease and Mask brushes; brush size/strength; undo/redo; save/load; subdivision and remesh research.
+2. **3D asset pipeline:** GLB/GLTF import/export, material editing, asset library and safe model selection.
+3. **Character Studio:** humanoid skeleton, skinning, IK, retargeting and editable animation clips.
+4. **Film Maker:** Myanmar scene assets, multi-scene storyboard, camera tracks, timeline/keyframes and preview.
+5. **Audio & subtitles:** Myanmar/English dialogue, device TTS integration where supported, voice-over, music/SFX tracks, timed subtitles and SRT.
+6. **Video output:** memory-aware frame queue, pause/resume, 480p/720p presets, Android encoder integration and audio/video muxing. MP4 export is not implemented yet.
+7. **AI assistance:** optional external image/model/voice providers; API keys remain user-supplied and are never committed.
 
-## GitHub Actions build
-The repository uses Unity 6 version `6000.0.64f1` and GameCI. A Unity Personal license is required by the CI build. Run the Unity Personal License Activation File workflow, download its artifact, submit the `.alf` file at https://license.unity.com/manual, then add the returned license file contents as the repository Actions secret named `UNITY_LICENSE`. Never commit license files or passwords.
+## Build
+Open **Actions → Godot Android ARMv7 APK → Run workflow** on the `godot-migration` branch, or push a change to that branch. The workflow validates the Godot project, exports the Android preset, checks for an ARMv7 native library, and uploads the APK artifact if all steps pass.
 
-After adding the secret, run **Unity 6 Android ARMv7 APK**. The workflow should upload `GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk` as an artifact if compilation and packaging succeed.
+The workflow uses a pinned Godot CI container and does not require a Unity license secret. A successful workflow is still required before claiming that an installable APK is ready.
+
+## Compatibility notes
+- The project is configured for ARMv7 only to meet the Redmi 9A requirement.
+- Google Play distribution generally requires a 64-bit variant as well; this ARMv7 build is intended for direct testing on the specified 32-bit device.
+- Godot's Android editor is experimental and touch UI is not fully optimized. Building through GitHub Actions avoids requiring the editor on the phone.
+- Heavy sculpt meshes and long video renders must be optimized carefully for the Redmi 9A's limited memory.
 
 Powered By အိုင်ကိုကို
