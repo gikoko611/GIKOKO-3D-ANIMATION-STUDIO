@@ -307,7 +307,8 @@ func _load_project() -> void:
 		_set_status("Saved project file is invalid.")
 		return
 	for child in object_root.get_children():
-		child.queue_free()
+		object_root.remove_child(child)
+		child.free()
 	selected_object = null
 	for item in parsed.objects:
 		if typeof(item) != TYPE_DICTIONARY:
