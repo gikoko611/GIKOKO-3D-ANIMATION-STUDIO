@@ -395,7 +395,13 @@ func _save_project() -> void:
 	var data := {"version": 3, "objects": [], "camera_markers": camera_markers, "subtitles": subtitle_cues}
 	for child in object_root.get_children():
 		var mesh_kind := "Imported"
-		if child.name.begins_with("SculptSphere"):
+		var saved_rig_pose := {}
+		if is_instance_valid(rig_root) and child == rig_root:
+			mesh_kind = "QuickRig"
+			for joint_name in rig_joints.keys():
+				var joint := rig_joints[joint_name] as Node3D
+				saved_rig_pose[joint_name] = [joint.rotation_degrees.x, joint.rotation_degrees.y, joint.rotation_degrees.z]
+		elif child.name.begins_with("SculptSphere"):
 			mesh_kind = "SculptSphere"
 		elif child.get_child_count() > 0 and child.get_child(0) is MeshInstance3D:
 			var mesh := (child.get_child(0) as MeshInstance3D).mesh
@@ -410,7 +416,8 @@ func _save_project() -> void:
 			"type": mesh_kind,
 			"position": [child.position.x, child.position.y, child.position.z],
 			"rotation": [child.rotation.x, child.rotation.y, child.rotation.z],
-			"scale": [child.scale.x, child.scale.y, child.scale.z]
+			"scale": [child.scale.x, child.scale.y, child.scale.z],
+			"rig_pose": saved_rig_pose
 		})
 	var path := "user://gi_koko_project.json"
 	var file := FileAccess.open(path, FileAccess.WRITE)
@@ -455,7 +462,9 @@ func _load_project() -> void:
 		var kind := str(item.get("type", "Box"))
 		if kind == "Imported":
 			continue
-		if kind == "SculptSphere":
+		if kind == "QuickRig":
+			_create_rig_mannequin()
+		elif kind == "SculptSphere":
 			_add_sculpt_sphere()
 		else:
 			_add_primitive(kind)
@@ -470,6 +479,17 @@ func _load_project() -> void:
 			node.rotation = Vector3(float(r[0]), float(r[1]), float(r[2]))
 		if s.size() == 3:
 			node.scale = Vector3(float(s[0]), float(s[1]), float(s[2]))
+		if kind == "QuickRig":
+			var saved_pose: Variant = item.get("rig_pose", {})
+			if typeof(saved_pose) == TYPE_DICTIONARY:
+				for joint_name in saved_pose.keys():
+					var angles: Variant = saved_pose[joint_name]
+					if typeof(angles) == TYPE_ARRAY and angles.size() == 3 and rig_joints.has(str(joint_name)):
+						var joint := rig_joints[str(joint_name)] as Node3D
+						joint.rotation_degrees = Vector3(float(angles[0]), float(angles[1]), float(angles[2]))
+						if rig_sliders.has(str(joint_name)):
+							var row := rig_sliders[str(joint_name)] as VBoxContainer
+							(row.get_child(1) as HSlider).set_value_no_signal(float(angles[2]))
 		selected_object = node
 	_set_status("Project loaded • " + str(object_root.get_child_count()) + " objects")
 
