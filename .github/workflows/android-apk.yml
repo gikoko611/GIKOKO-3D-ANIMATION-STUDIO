@@ -32,6 +32,9 @@ jobs:
           unzip -oq /tmp/godot-templates.tpz -d /tmp/godot-templates
           cp -a /tmp/godot-templates/templates/. "$HOME/.local/share/godot/export_templates/4.3.stable/"
 
+      - name: Install project Android build template
+        run: godot --headless --editor --path . --install-android-build-template
+
       - name: Configure Android SDK and Java
         run: |
           yes | sdkmanager --licenses >/dev/null || true
