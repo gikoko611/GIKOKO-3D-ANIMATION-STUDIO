@@ -36,7 +36,7 @@ jobs:
       - name: Configure Android SDK and Java
         run: |
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platform-tools" "platforms;android-29" "build-tools;29.0.3"
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
           JAVA_BIN="$(command -v javac)"
           JAVA_HOME_DIR="$(dirname "$(dirname "$(readlink -f "$JAVA_BIN")")")"
           mkdir -p "$HOME/.config/godot"
@@ -61,8 +61,8 @@ jobs:
       - name: Verify APK
         run: |
           test -s build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
-          "$ANDROID_HOME/build-tools/29.0.3/aapt" dump badging build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
-          "$ANDROID_HOME/build-tools/29.0.3/apksigner" verify build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
 
       - name: Publish v0.0.1 GitHub Release
         uses: softprops/action-gh-release@v2
