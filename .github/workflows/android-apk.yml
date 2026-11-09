@@ -15,7 +15,7 @@ on:
       - '.github/workflows/android-apk.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -123,3 +123,16 @@ jobs:
           path: build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish GitHub Release v0.0.1
+        if: github.ref == 'refs/heads/godot-migration'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.0.1 >/dev/null 2>&1; then
+            echo "Release v0.0.1 already exists; leaving the published release unchanged."
+          else
+            gh release create v0.0.1 build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk \\
+              --title "G.I KO KO 3D ANIMATION STUDIO v0.0.1" \\
+              --notes "First public ARMv7 Android release. Built with Godot 4.3 for Android 10+ compatible devices. Includes 3D workspace, sculpting tools, Quick Rig mannequin posing, rig pose keyframes, timeline navigation, and film preview tools.\n\nTarget: armeabi-v7a (32-bit ARM).\nAPK: GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk"
+          fi
