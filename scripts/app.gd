@@ -16,6 +16,11 @@ var project_path := ""
 var orbit_angle := 0.7
 var camera_distance := 6.0
 var selected_object: Node3D
+var viewport_3d: SubViewport
+var sculpt_enabled := false
+var sculpt_brush := "Clay"
+var sculpt_radius := 0.42
+var sculpt_strength := 0.12
 
 func _ready() -> void:
 	_build_world()
@@ -74,6 +79,7 @@ func _build_ui() -> void:
 	_add_button(toolbar, "＋ Box", func(): _add_primitive("Box"))
 	_add_button(toolbar, "＋ Sphere", func(): _add_primitive("Sphere"))
 	_add_button(toolbar, "＋ Capsule", func(): _add_primitive("Capsule"))
+	_add_button(toolbar, "Sculpt Sphere", _add_sculpt_sphere)
 	_add_button(toolbar, "Import 3D", _open_import)
 	_add_button(toolbar, "Export GLB", _open_export)
 	_add_button(toolbar, "Save Project", _save_project)
@@ -85,11 +91,13 @@ func _build_ui() -> void:
 	viewport_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(viewport_panel)
 	var view := SubViewportContainer.new()
+	view.gui_input.connect(_on_viewport_input)
 	view.stretch = true
 	view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	viewport_panel.add_child(view)
 	var sub := SubViewport.new()
+	viewport_3d = sub
 	sub.size = Vector2i(800, 600)
 	sub.own_world_3d = true
 	view.add_child(sub)
@@ -109,6 +117,43 @@ func _build_ui() -> void:
 	_add_button(side, "Scale +", func(): _scale_selected(1.1))
 	_add_button(side, "Scale -", func(): _scale_selected(0.9))
 	_add_button(side, "Free Image → 3D", _open_ai_help)
+	var sculpt_title := Label.new()
+	sculpt_title.text = "SCULPT BRUSH"
+	sculpt_title.add_theme_color_override("font_color", GREEN)
+	side.add_child(sculpt_title)
+	var brush_picker := OptionButton.new()
+	for brush in ["Standard", "Clay", "Smooth", "Inflate", "Move", "Flatten", "Crease", "Mask"]:
+		brush_picker.add_item(brush)
+	brush_picker.select(1)
+	brush_picker.item_selected.connect(func(index: int):
+		sculpt_brush = brush_picker.get_item_text(index)
+		_set_status("Sculpt brush: " + sculpt_brush)
+	)
+	side.add_child(brush_picker)
+	var size_label := Label.new()
+	size_label.text = "Brush Size"
+	side.add_child(size_label)
+	var size_slider := HSlider.new()
+	size_slider.min_value = 0.12
+	size_slider.max_value = 0.9
+	size_slider.step = 0.02
+	size_slider.value = sculpt_radius
+	size_slider.value_changed.connect(func(value: float): sculpt_radius = value)
+	side.add_child(size_slider)
+	var strength_label := Label.new()
+	strength_label.text = "Brush Strength"
+	side.add_child(strength_label)
+	var strength_slider := HSlider.new()
+	strength_slider.min_value = 0.01
+	strength_slider.max_value = 0.35
+	strength_slider.step = 0.01
+	strength_slider.value = sculpt_strength
+	strength_slider.value_changed.connect(func(value: float): sculpt_strength = value)
+	side.add_child(strength_slider)
+	_add_button(side, "Enable Sculpt Touch", func():
+		sculpt_enabled = not sculpt_enabled
+		_set_status("Sculpt touch " + ("enabled" if sculpt_enabled else "disabled"))
+	)
 	var note := Label.new()
 	note.text = "AI generation runs on a hosted GPU service. Import the resulting GLB/OBJ here."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
