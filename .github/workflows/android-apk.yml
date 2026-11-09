@@ -54,9 +54,14 @@ jobs:
       - name: Validate project
         run: godot --headless --path . --editor --quit
 
-      - name: Install Android template and export APK
+      - name: Install Android build template
         run: |
-          timeout 12m godot --headless --path . --install-android-build-template --export-debug "Android ARMv7" build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
+          timeout 5m godot --headless --editor --path . --install-android-build-template --quit
+          test -d android/build || test -f android/build.gradle || true
+
+      - name: Export Android ARMv7 APK
+        run: |
+          godot --headless --path . --verbose --export-debug "Android ARMv7" build/GI-KO-KO-3D-ANIMATION-STUDIO-ARMv7.apk
 
       - name: Verify APK
         run: |
