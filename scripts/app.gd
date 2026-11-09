@@ -230,6 +230,9 @@ func _build_ui() -> void:
 	side.add_child(timeline_slider)
 	_add_button(side, "＋ Set Transform Key", _add_transform_key)
 	_add_button(side, "＋ Set Rig Pose Key", _add_rig_pose_key)
+	_add_button(side, "◀ Previous Rig Key", _previous_rig_key)
+	_add_button(side, "Next Rig Key ▶", _next_rig_key)
+	_add_button(side, "Delete Rig Key At Time", _delete_rig_key_at_time)
 	_add_button(side, "▶ Play Animation", _play_animation)
 	_add_button(side, "■ Stop Animation", _stop_animation)
 	var rig_title := Label.new()
@@ -710,7 +713,86 @@ func _add_rig_pose_key() -> void:
 		animation.track_insert_key(track_index, timeline_time, joint.rotation)
 		keyed_count += 1
 	animation.length = maxf(animation.length, timeline_time + 0.1)
+	if timeline_slider != null:
+		timeline_slider.max_value = maxf(5.0, animation.length)
 	_set_status("Rig pose key saved • %d joints at %.2fs" % [keyed_count, timeline_time])
+
+func _get_rig_key_times() -> Array[float]:
+	var times: Array[float] = []
+	if animation_player == null:
+		return times
+	var library := animation_player.get_animation_library("")
+	if library == null:
+		return times
+	var animation := library.get_animation("Take 001")
+	if animation == null or not is_instance_valid(rig_root):
+		return times
+	var prefix := NodePath("Assets/" + str(rig_root.name) + "/")
+	for track_index in range(animation.get_track_count()):
+		var path := animation.track_get_path(track_index)
+		if not str(path).begins_with(str(prefix)):
+			continue
+		for key_index in range(animation.track_get_key_count(track_index)):
+			var key_time := animation.track_get_key_time(track_index, key_index)
+			var exists := false
+			for saved_time in times:
+				if absf(saved_time - key_time) < 0.001:
+					exists = true
+					break
+			if not exists:
+				times.append(key_time)
+	times.sort()
+	return times
+
+func _set_timeline_position(value: float) -> void:
+	timeline_time = maxf(0.0, value)
+	if timeline_slider != null:
+		timeline_slider.set_value_no_signal(timeline_time)
+	if animation_player != null:
+		animation_player.pause()
+		animation_player.seek(timeline_time, true)
+
+func _previous_rig_key() -> void:
+	var times := _get_rig_key_times()
+	for index in range(times.size() - 1, -1, -1):
+		if times[index] < timeline_time - 0.001:
+			_set_timeline_position(times[index])
+			_set_status("Moved to previous rig key • %.2fs" % timeline_time)
+			return
+	if not times.is_empty():
+		_set_timeline_position(times[0])
+		_set_status("Moved to first rig key • %.2fs" % timeline_time)
+	else:
+		_set_status("No rig pose keys yet.")
+
+func _next_rig_key() -> void:
+	for key_time in _get_rig_key_times():
+		if key_time > timeline_time + 0.001:
+			_set_timeline_position(key_time)
+			_set_status("Moved to next rig key • %.2fs" % timeline_time)
+			return
+	_set_status("No later rig pose key found.")
+
+func _delete_rig_key_at_time() -> void:
+	if animation_player == null or not is_instance_valid(rig_root):
+		_set_status("Create a Quick Rig first.")
+		return
+	var library := animation_player.get_animation_library("")
+	if library == null:
+		return
+	var animation := library.get_animation("Take 001")
+	if animation == null:
+		return
+	var prefix := "Assets/" + str(rig_root.name) + "/"
+	var removed := 0
+	for track_index in range(animation.get_track_count()):
+		if not str(animation.track_get_path(track_index)).begins_with(prefix):
+			continue
+		for key_index in range(animation.get_track_key_count(track_index) - 1, -1, -1):
+			if absf(animation.track_get_key_time(track_index, key_index) - timeline_time) <= 0.06:
+				animation.track_remove_key(track_index, key_index)
+				removed += 1
+	_set_status("Deleted %d rig joint keys near %.2fs" % [removed, timeline_time])
 
 func _play_animation() -> void:
 	if animation_player == null:
