@@ -604,17 +604,27 @@ func _build_rig_controls() -> void:
 		label.text = joint_name.replace("_", " ")
 		row.add_child(label)
 		var slider := HSlider.new()
-		slider.min_value = -90.0
-		slider.max_value = 90.0
+		slider.min_value = -180.0
+		slider.max_value = 180.0
 		slider.step = 1.0
 		slider.custom_minimum_size.x = 170
-		slider.value_changed.connect(func(value: float, name: String = joint_name):
-			if rig_joints.has(name):
-				(rig_joints[name] as Node3D).rotation_degrees.z = value
-		)
+		slider.value_changed.connect(_on_rig_joint_slider.bind(joint_name))
 		row.add_child(slider)
 		side_rig_container.add_child(row)
 		rig_sliders[joint_name] = row
+
+func _on_rig_joint_slider(value: float, joint_name: String) -> void:
+	if rig_joints.has(joint_name):
+		(rig_joints[joint_name] as Node3D).rotation_degrees.z = value
+
+func _set_rig_joint_rotation(joint_name: String, degrees: float) -> void:
+	if not rig_joints.has(joint_name):
+		return
+	(rig_joints[joint_name] as Node3D).rotation_degrees.z = degrees
+	if rig_sliders.has(joint_name):
+		var row := rig_sliders[joint_name] as VBoxContainer
+		var slider := row.get_child(1) as HSlider
+		slider.set_value_no_signal(degrees)
 
 func _reset_rig_pose() -> void:
 	if not is_instance_valid(rig_root):
@@ -632,11 +642,11 @@ func _pose_walk() -> void:
 		_set_status("Create the Quick Rig first.")
 		return
 	_reset_rig_pose()
-	(rig_joints["Hip_L"] as Node3D).rotation_degrees.z = -28.0
-	(rig_joints["Knee_L"] as Node3D).rotation_degrees.z = 32.0
-	(rig_joints["Hip_R"] as Node3D).rotation_degrees.z = 28.0
-	(rig_joints["Shoulder_L"] as Node3D).rotation_degrees.z = 22.0
-	(rig_joints["Shoulder_R"] as Node3D).rotation_degrees.z = -22.0
+	_set_rig_joint_rotation("Hip_L", -28.0)
+	_set_rig_joint_rotation("Knee_L", 32.0)
+	_set_rig_joint_rotation("Hip_R", 28.0)
+	_set_rig_joint_rotation("Shoulder_L", 22.0)
+	_set_rig_joint_rotation("Shoulder_R", -22.0)
 	_set_status("Walk pose applied")
 
 func _pose_arms_up() -> void:
@@ -644,8 +654,8 @@ func _pose_arms_up() -> void:
 		_set_status("Create the Quick Rig first.")
 		return
 	_reset_rig_pose()
-	(rig_joints["Shoulder_L"] as Node3D).rotation_degrees.z = 150.0
-	(rig_joints["Shoulder_R"] as Node3D).rotation_degrees.z = -150.0
+	_set_rig_joint_rotation("Shoulder_L", 150.0)
+	_set_rig_joint_rotation("Shoulder_R", -150.0)
 	_set_status("Arms-up pose applied")
 
 func _play_animation() -> void:
