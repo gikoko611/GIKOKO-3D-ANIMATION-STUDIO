@@ -536,7 +536,7 @@ func _add_transform_key() -> void:
 			animation.track_set_path(track_index, track_path)
 			animation.value_track_set_update_mode(track_index, Animation.UPDATE_CONTINUOUS)
 		var value: Variant = selected_object.get(property)
-		var key_index := animation.track_find_key(track_index, timeline_time, true)
+		var key_index := animation.track_find_key(track_index, timeline_time, Animation.FIND_MODE_APPROX)
 		if key_index >= 0:
 			animation.track_remove_key(track_index, key_index)
 		animation.track_insert_key(track_index, timeline_time, value)
@@ -707,7 +707,7 @@ func _add_rig_pose_key() -> void:
 			track_index = animation.add_track(Animation.TYPE_VALUE)
 			animation.track_set_path(track_index, track_path)
 			animation.value_track_set_update_mode(track_index, Animation.UPDATE_CONTINUOUS)
-		var key_index := animation.track_find_key(track_index, timeline_time, true)
+		var key_index := animation.track_find_key(track_index, timeline_time, Animation.FIND_MODE_APPROX)
 		if key_index >= 0:
 			animation.track_remove_key(track_index, key_index)
 		animation.track_insert_key(track_index, timeline_time, joint.rotation)
