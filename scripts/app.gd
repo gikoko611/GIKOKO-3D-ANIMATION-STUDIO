@@ -37,6 +37,10 @@ var sculpt_radius := 0.42
 var sculpt_strength := 0.12
 var sculpt_undo_stack: Array[ArrayMesh] = []
 var sculpt_redo_stack: Array[ArrayMesh] = []
+var rig_root: Node3D
+var rig_joints: Dictionary = {}
+var rig_sliders: Dictionary = {}
+var side_rig_container: VBoxContainer
 const SCULPT_HISTORY_LIMIT := 20
 
 func _ready() -> void:
@@ -227,6 +231,22 @@ func _build_ui() -> void:
 	_add_button(side, "＋ Set Transform Key", _add_transform_key)
 	_add_button(side, "▶ Play Animation", _play_animation)
 	_add_button(side, "■ Stop Animation", _stop_animation)
+	var rig_title := Label.new()
+	rig_title.text = "QUICK CHARACTER RIG"
+	rig_title.add_theme_color_override("font_color", GREEN)
+	side.add_child(rig_title)
+	_add_button(side, "＋ Create Rig Mannequin", _create_rig_mannequin)
+	_add_button(side, "Reset Rig Pose", _reset_rig_pose)
+	_add_button(side, "Pose: Walk", _pose_walk)
+	_add_button(side, "Pose: Arms Up", _pose_arms_up)
+	var rig_hint := Label.new()
+	rig_hint.text = "Select a joint slider to pose the mannequin. Use Set Transform Key on the rig root for basic motion."
+	rig_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rig_hint.add_theme_color_override("font_color", Color("#a9bac8"))
+	side.add_child(rig_hint)
+	side_rig_container = VBoxContainer.new()
+	side_rig_container.add_theme_constant_override("separation", 2)
+	side.add_child(side_rig_container)
 	var film_title := Label.new()
 	film_title.text = "FILM MAKER"
 	film_title.add_theme_color_override("font_color", GOLD)
@@ -498,6 +518,135 @@ func _add_transform_key() -> void:
 		animation.track_insert_key(track_index, timeline_time, value)
 	animation.length = maxf(animation.length, timeline_time + 0.1)
 	_set_status("Transform keyframe set at %.2fs" % timeline_time)
+
+func _create_rig_mannequin() -> void:
+	if is_instance_valid(rig_root):
+		object_root.remove_child(rig_root)
+		rig_root.queue_free()
+	rig_joints.clear()
+	rig_sliders.clear()
+	rig_root = Node3D.new()
+	rig_root.name = "GI_KOKO_QuickRig"
+	object_root.add_child(rig_root)
+	var hips := _rig_joint("Hips", rig_root, Vector3(0, 0.95, 0))
+	var torso := _rig_joint("Spine", hips, Vector3(0, 0.28, 0))
+	_rig_capsule(torso, "TorsoMesh", 0.32, 0.68, Vector3(0, 0.08, 0))
+	var chest := _rig_joint("Chest", torso, Vector3(0, 0.35, 0))
+	_rig_capsule(chest, "ChestMesh", 0.29, 0.42, Vector3(0, 0.0, 0))
+	var neck := _rig_joint("Neck", chest, Vector3(0, 0.28, 0))
+	_rig_capsule(neck, "NeckMesh", 0.10, 0.18, Vector3(0, 0.06, 0))
+	var head := _rig_joint("Head", neck, Vector3(0, 0.18, 0))
+	var head_mesh := MeshInstance3D.new()
+	var head_sphere := SphereMesh.new()
+	head_sphere.radius = 0.19
+	head_sphere.height = 0.38
+	head_mesh.mesh = head_sphere
+	head_mesh.position.y = 0.12
+	head_mesh.material_override = _rig_material(Color("#e7bd63"))
+	head.add_child(head_mesh)
+	for side in [-1, 1]:
+		var suffix := "L" if side < 0 else "R"
+		var shoulder := _rig_joint("Shoulder_" + suffix, chest, Vector3(0.34 * side, 0.15, 0))
+		_rig_capsule(shoulder, "UpperArm_" + suffix, 0.105, 0.48, Vector3(0, -0.22, 0))
+		var elbow := _rig_joint("Elbow_" + suffix, shoulder, Vector3(0, -0.44, 0))
+		_rig_capsule(elbow, "Forearm_" + suffix, 0.085, 0.40, Vector3(0, -0.19, 0))
+		var hand := _rig_joint("Hand_" + suffix, elbow, Vector3(0, -0.38, 0))
+		_rig_capsule(hand, "HandMesh_" + suffix, 0.07, 0.16, Vector3(0, -0.06, 0))
+		var hip := _rig_joint("Hip_" + suffix, hips, Vector3(0.14 * side, -0.02, 0))
+		_rig_capsule(hip, "Thigh_" + suffix, 0.13, 0.52, Vector3(0, -0.25, 0))
+		var knee := _rig_joint("Knee_" + suffix, hip, Vector3(0, -0.49, 0))
+		_rig_capsule(knee, "Shin_" + suffix, 0.095, 0.48, Vector3(0, -0.23, 0))
+		var foot := _rig_joint("Foot_" + suffix, knee, Vector3(0, -0.44, 0.06))
+		_rig_capsule(foot, "FootMesh_" + suffix, 0.08, 0.22, Vector3(0, -0.02, 0.10))
+	selected_object = rig_root
+	_build_rig_controls()
+	_set_status("Quick Rig created • 15 articulated joints • select a slider to pose")
+	_focus_selected()
+
+func _rig_joint(joint_name: String, parent: Node3D, offset: Vector3) -> Node3D:
+	var joint := Node3D.new()
+	joint.name = joint_name
+	joint.position = offset
+	parent.add_child(joint)
+	rig_joints[joint_name] = joint
+	return joint
+
+func _rig_capsule(parent: Node3D, mesh_name: String, radius: float, height: float, offset: Vector3) -> void:
+	var instance := MeshInstance3D.new()
+	instance.name = mesh_name
+	var capsule := CapsuleMesh.new()
+	capsule.radius = radius
+	capsule.height = height
+	capsule.radial_segments = 8
+	capsule.rings = 4
+	instance.mesh = capsule
+	instance.position = offset
+	instance.material_override = _rig_material(Color("#28baff") if mesh_name.contains("Arm") or mesh_name.contains("Forearm") else Color("#39dca3"))
+	parent.add_child(instance)
+
+func _rig_material(color: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.metallic = 0.12
+	material.roughness = 0.48
+	return material
+
+func _build_rig_controls() -> void:
+	for child in rig_sliders.values():
+		if is_instance_valid(child):
+			child.queue_free()
+	rig_sliders.clear()
+	for joint_name in ["Spine", "Chest", "Head", "Shoulder_L", "Elbow_L", "Shoulder_R", "Elbow_R", "Hip_L", "Knee_L", "Hip_R", "Knee_R"]:
+		if not rig_joints.has(joint_name):
+			continue
+		var row := VBoxContainer.new()
+		var label := Label.new()
+		label.text = joint_name.replace("_", " ")
+		row.add_child(label)
+		var slider := HSlider.new()
+		slider.min_value = -90.0
+		slider.max_value = 90.0
+		slider.step = 1.0
+		slider.custom_minimum_size.x = 170
+		slider.value_changed.connect(func(value: float, name: String = joint_name):
+			if rig_joints.has(name):
+				(rig_joints[name] as Node3D).rotation_degrees.z = value
+		)
+		row.add_child(slider)
+		side_rig_container.add_child(row)
+		rig_sliders[joint_name] = row
+
+func _reset_rig_pose() -> void:
+	if not is_instance_valid(rig_root):
+		_set_status("Create the Quick Rig first.")
+		return
+	for joint in rig_joints.values():
+		(joint as Node3D).rotation = Vector3.ZERO
+	for row in rig_sliders.values():
+		var slider := row.get_child(1) as HSlider
+		slider.set_value_no_signal(0.0)
+	_set_status("Rig pose reset")
+
+func _pose_walk() -> void:
+	if not is_instance_valid(rig_root):
+		_set_status("Create the Quick Rig first.")
+		return
+	_reset_rig_pose()
+	(rig_joints["Hip_L"] as Node3D).rotation_degrees.z = -28.0
+	(rig_joints["Knee_L"] as Node3D).rotation_degrees.z = 32.0
+	(rig_joints["Hip_R"] as Node3D).rotation_degrees.z = 28.0
+	(rig_joints["Shoulder_L"] as Node3D).rotation_degrees.z = 22.0
+	(rig_joints["Shoulder_R"] as Node3D).rotation_degrees.z = -22.0
+	_set_status("Walk pose applied")
+
+func _pose_arms_up() -> void:
+	if not is_instance_valid(rig_root):
+		_set_status("Create the Quick Rig first.")
+		return
+	_reset_rig_pose()
+	(rig_joints["Shoulder_L"] as Node3D).rotation_degrees.z = 150.0
+	(rig_joints["Shoulder_R"] as Node3D).rotation_degrees.z = -150.0
+	_set_status("Arms-up pose applied")
 
 func _play_animation() -> void:
 	if animation_player == null:
