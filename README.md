@@ -13,6 +13,8 @@ Phone-first 3D modeling, sculpting and animation-film workspace powered by **God
 ## Current Godot foundation
 - Cyber green / blue / gold studio shell
 - 3D viewport and primitive Box / Sphere / Capsule creation
+- Sculpt sphere with touch raycast and prototype Standard / Clay / Smooth / Inflate / Move / Flatten / Crease / Mask brush selector
+- Adjustable sculpt brush radius and strength; vertex deformation prototype for the sculpt sphere
 - GLB / GLTF import and GLB export foundation
 - Object focus, rotate and scale controls
 - Local JSON project save
@@ -20,7 +22,7 @@ Phone-first 3D modeling, sculpting and animation-film workspace powered by **God
 - GitHub Actions workflow on the `godot-migration` branch
 
 ## Migration status — important
-The current Godot app is a **starter foundation**, not yet feature-complete. The earlier Unity branch contains prototypes for sculpt brushes, a procedural character/scene film-maker, Android TTS, synthetic sound effects and subtitle controls. Those Unity C# features are not automatically portable to Godot and are not yet all implemented in this Godot branch. Keep the Unity branch intact as a reference until each corresponding Godot feature has been rebuilt and checked.
+The current Godot app is a **starter foundation**, not yet feature-complete. Sculpting currently edits a low-resolution sphere mesh using a simple radial brush prototype; it does not yet include production remeshing, subdivision, vertex masks, brush stroke interpolation, undo/redo, or persistence of sculpted vertex data. The earlier Unity branch contains prototypes for sculpt brushes, a procedural character/scene film-maker, Android TTS, synthetic sound effects and subtitle controls. Those Unity C# features are not automatically portable to Godot and are not yet all implemented in this Godot branch. Keep the Unity branch intact as a reference until each corresponding Godot feature has been rebuilt and checked.
 
 ## Full feature roadmap
 1. **Sculpt Studio:** Standard, Clay, Smooth, Inflate, Move, Flatten, Crease and Mask brushes; brush size/strength; undo/redo; save/load; subdivision and remesh research.
