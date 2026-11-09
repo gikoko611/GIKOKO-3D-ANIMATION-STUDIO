@@ -100,9 +100,15 @@ func _build_ui() -> void:
 	powered.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	powered.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	header.add_child(powered)
+	var toolbar_scroll := ScrollContainer.new()
+	toolbar_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	toolbar_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	toolbar_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toolbar_scroll.custom_minimum_size.y = 48
+	root.add_child(toolbar_scroll)
 	var toolbar := HBoxContainer.new()
 	toolbar.add_theme_constant_override("separation", 6)
-	root.add_child(toolbar)
+	toolbar_scroll.add_child(toolbar)
 	_add_button(toolbar, "＋ Box", func(): _add_primitive("Box"))
 	_add_button(toolbar, "＋ Sphere", func(): _add_primitive("Sphere"))
 	_add_button(toolbar, "＋ Capsule", func(): _add_primitive("Capsule"))
@@ -111,12 +117,15 @@ func _build_ui() -> void:
 	_add_button(toolbar, "Export GLB", _open_export)
 	_add_button(toolbar, "Save Project", _save_project)
 	_add_button(toolbar, "Load Project", _load_project)
-	var body := HBoxContainer.new()
+	var is_mobile := get_viewport_rect().size.x < 700.0
+	var body: BoxContainer = VBoxContainer.new() if is_mobile else HBoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(body)
 	var viewport_panel := PanelContainer.new()
 	viewport_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	viewport_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if is_mobile:
+		viewport_panel.custom_minimum_size.y = 280
 	body.add_child(viewport_panel)
 	var view := SubViewportContainer.new()
 	view.gui_input.connect(_on_viewport_input)
@@ -132,9 +141,20 @@ func _build_ui() -> void:
 	# Move the already-created 3D world into the viewport's world.
 	world.get_parent().remove_child(world)
 	sub.add_child(world)
+	var side_scroll := ScrollContainer.new()
+	side_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	side_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	side_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	side_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if is_mobile:
+		side_scroll.custom_minimum_size.y = 300
+	else:
+		side_scroll.custom_minimum_size.x = 205
+	body.add_child(side_scroll)
 	var side := VBoxContainer.new()
-	side.custom_minimum_size.x = 205
-	body.add_child(side)
+	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	side.add_theme_constant_override("separation", 5)
+	side_scroll.add_child(side)
 	var tools_title := Label.new()
 	tools_title.text = "ASSET TOOLS"
 	tools_title.add_theme_color_override("font_color", BLUE)
@@ -267,7 +287,7 @@ func _build_ui() -> void:
 	audio_dialog = FileDialog.new()
 	audio_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	audio_dialog.access = FileDialog.ACCESS_FILESYSTEM
-	audio_dialog.add_filter("*.wav, *.mp3, *.ogg", "Audio files")
+	audio_dialog.add_filter("*.wav, *.mp3", "WAV / MP3 audio files")
 	audio_dialog.file_selected.connect(_import_audio)
 	add_child(audio_dialog)
 	_apply_theme(self)
@@ -519,15 +539,23 @@ func _film_duration() -> float:
 			var anim := library.get_animation("Take 001")
 			if anim != null:
 				duration = maxf(duration, anim.length)
+	if duration > 0.0:
+		duration = maxf(duration, 1.0)
 	return duration
 
 func _play_film_preview() -> void:
-	if camera_markers.is_empty() and subtitle_cues.is_empty() and (animation_player == null or animation_player.get_animation("Take 001").get_track_count() == 0):
+	var has_animation := false
+	if animation_player != null:
+		var library := animation_player.get_animation_library("")
+		if library != null:
+			var take := library.get_animation("Take 001")
+			has_animation = take != null and take.get_track_count() > 0
+	if camera_markers.is_empty() and subtitle_cues.is_empty() and not has_animation:
 		_set_status("Add camera markers, subtitle cues or transform keys first.")
 		return
 	film_clock = 0.0
 	film_playing = true
-	if animation_player != null and animation_player.get_animation("Take 001").get_track_count() > 0:
+	if has_animation:
 		animation_player.play("Take 001")
 	_set_status("Film preview playing")
 
@@ -595,11 +623,6 @@ func _import_audio(path: String) -> void:
 			var mp3 := AudioStreamMP3.new()
 			mp3.data = bytes
 			stream = mp3
-		"ogg":
-			var ogg := AudioStreamOggVorbis.new()
-			ogg.packet_sequence = OggPacketSequence.new()
-			_set_status("OGG import requires a Godot-imported resource; use WAV or MP3 for direct file import.")
-			return
 		_:
 			_set_status("Unsupported audio format.")
 			return
@@ -682,9 +705,9 @@ func _export_srt(path: String) -> void:
 	for i in range(cues.size()):
 		var start := float(cues[i].get("time", 0.0))
 		var finish := start + maxf(0.5, float(cues[i].get("duration", 3.0)))
-		output += str(i + 1) + "\\n"
-		output += _format_srt_time(start) + " --> " + _format_srt_time(finish) + "\\n"
-		output += str(cues[i].get("text", "")) + "\\n\\n"
+		output += str(i + 1) + "\n"
+		output += _format_srt_time(start) + " --> " + _format_srt_time(finish) + "\n"
+		output += str(cues[i].get("text", "")) + "\n\n"
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		_set_status("SRT export failed: " + error_string(FileAccess.get_open_error()))
