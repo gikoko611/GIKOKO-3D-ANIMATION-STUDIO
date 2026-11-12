@@ -1,25 +1,21 @@
-# G.I KO KO 3D ANIMATION STUDIO
+# AniCraft Studio for Android
 
-A phone-first 3D asset studio prototype for Android 10+ (ARMv7).
+Native Android-first 2D drawing and frame-animation project targeting Android 10+ and ARMv7 (armeabi-v7a). This is not a WebView wrapper.
 
-## Current build scope
-- 3D viewport with orbit camera and sample primitives
-- Add basic mesh objects (box, sphere, capsule)
-- Import GLB/GLTF and OBJ assets from device storage
-- Export GLB assets
-- Simple project save/load as JSON
-- Free AI Image-to-3D workflow links (generation is performed by external hosted demos; no paid API key is embedded)
-- GitHub Actions Android APK build
+## Current native MVP
+- Native Android drawing surface with touch input
+- Brush colors, eraser, undo and clear
+- Multi-frame timeline (add/select frames)
+- Save a draft project to app-private storage
+- Export the current frame as a 1080x1080 PNG to Pictures/AniCraft
+- Core editing works offline; no account or API key required
 
-## Important free-AI note
-The app does not run large image-to-3D models on the Redmi 9A. Open models such as [TripoSR](https://github.com/VAST-AI-Research/TripoSR) can be used through a hosted demo or a separately managed GPU machine. Hosted free demos may have queues, limits, or change availability. The app provides an import workflow for generated GLB/OBJ files; it does not claim unlimited free cloud generation.
+## AniCraft upstream integration
+The upstream AniCraft application is a Rust/egui desktop app. Its existing workspace is not currently an Android-native UI or a drop-in Android library. This repository separates the native Android interface from the future portable-engine integration. The original source and its MIT/Apache-2.0 notices must be retained when portable crates are vendored or adapted. Feature parity with desktop AniCraft is not claimed in this starter milestone.
 
 ## Build
-Push to `main` or run the **Android APK** workflow manually. Download the APK from the workflow artifact.
+GitHub Actions builds a debug APK for ARMv7. Download the AniCraft-Android-ARMv7 artifact from the workflow run.
 
-Target: Android 10+, armeabi-v7a (32-bit). The build uses Godot 4 and GitHub Actions.
-
-## Roadmap
-Rigging, timeline animation, multi-view reconstruction, texture editing, and video rendering are planned stages, not yet implemented in this initial prototype.
+Target: Android 10 (API 29) and later. Native UI and local drawing/export are offline-first.
 
 Powered By အိုင်ကိုကို
