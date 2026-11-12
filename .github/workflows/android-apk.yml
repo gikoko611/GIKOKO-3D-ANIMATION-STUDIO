@@ -4,7 +4,7 @@ on:
     branches: [anicraft-android-native, main]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,7 +21,6 @@ jobs:
           java-version: '17'
       - name: Install Android SDK and SVG converter
         run: |
-          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" || true
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | head -n 1)"
           test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
@@ -48,14 +47,30 @@ jobs:
             echo "Unexpected ARM64-only native library found"
             exit 1
           fi
-          if unzip -l "$APK" | grep -q 'lib/'; then
-            unzip -l "$APK" | grep 'lib/'
-          else
-            echo "Pure Kotlin/Java APK: compatible with ARMv7; no ABI-specific native libraries."
-          fi
-      - uses: actions/upload-artifact@v4
+          echo "APK build and package verification passed."
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
         with:
           name: AniCraft-Android-ARMv7
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+      - name: Publish GitHub Release APK
+        if: github.ref == 'refs/heads/anicraft-android-native'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.0
+          name: AniCraft Studio v0.1.0
+          target_commitish: anicraft-android-native
+          body: |
+            AniCraft Studio Android native starter release.
+
+            - Android 10+ (API 29)
+            - ARMv7-compatible pure Kotlin/Java APK
+            - Offline drawing, frame navigation, local draft save and PNG export
+            - Uses the repository's existing icon.svg as the launcher icon
+
+            This is an early native MVP, not full feature parity with the upstream AniCraft desktop editor.
+          files: app/build/outputs/apk/debug/app-debug.apk
+          overwrite_files: true
+          make_latest: true
