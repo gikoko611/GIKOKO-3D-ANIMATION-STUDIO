@@ -9,6 +9,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 17
@@ -16,10 +19,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - name: Install Android SDK and SVG converter
         run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" || true
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | head -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
           sudo apt-get update
           sudo apt-get install -y librsvg2-bin
       - name: Generate launcher icon from repository logo
@@ -45,7 +51,7 @@ jobs:
           if unzip -l "$APK" | grep -q 'lib/'; then
             unzip -l "$APK" | grep 'lib/'
           else
-            echo "Pure Kotlin/Java APK: no native ABI-specific libraries; compatible with ARMv7 Android."
+            echo "Pure Kotlin/Java APK: compatible with ARMv7; no ABI-specific native libraries."
           fi
       - uses: actions/upload-artifact@v4
         with:
