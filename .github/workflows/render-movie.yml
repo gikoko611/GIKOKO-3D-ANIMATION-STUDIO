@@ -1,0 +1,163 @@
+name: 🎬 G.I KO KO — Render 3D Movie MP4
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'GI_KOKO_PROJECT.zip'
+      - '.github/workflows/render-movie.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gi-koko-movie-render
+  cancel-in-progress: false
+
+jobs:
+  render-movie:
+    name: Render 5-minute 3D animation
+    runs-on: ubuntu-22.04
+    timeout-minutes: 350
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check uploaded project archive
+        run: |
+          test -s GI_KOKO_PROJECT.zip
+          unzip -t GI_KOKO_PROJECT.zip
+          mkdir -p movie-source
+          unzip -q GI_KOKO_PROJECT.zip -d movie-source
+          test -f movie-source/project/src/index.js
+          test -f movie-source/project/config/movie.config.js
+          echo "Project archive verified."
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install render dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            ffmpeg xvfb build-essential python3 pkg-config \
+            libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
+            libgl1-mesa-dev libosmesa6-dev libxi-dev libxext-dev libx11-dev \
+            libxrender-dev libxrandr-dev fonts-noto-core fonts-noto-cjk zip
+
+      - name: Install Node packages
+        working-directory: movie-source/project
+        run: npm install --no-audit --no-fund
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+
+      - name: Generate dialogue voices (optional)
+        working-directory: movie-source/project
+        env:
+          DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
+        run: |
+          mkdir -p output temp/frames temp/voices temp/music temp/sfx temp/audio
+          node - <<'NODE'
+          const tts = require('./src/audio/tts');
+          tts.generateAllVoices()
+            .then(() => console.log('Voice generation stage complete.'))
+            .catch(err => console.warn('Voice generation skipped/failed; continuing without spoken dialogue:', err.message));
+          NODE
+
+      - name: Generate Myanmar and English subtitles
+        working-directory: movie-source/project
+        run: node -e "require('./src/subtitles/subtitle-generator').generateSubtitles()"
+
+      - name: Generate music and sound effects
+        working-directory: movie-source/project
+        run: |
+          node -e "require('./src/audio/music').generateMusic()"
+          node -e "require('./src/audio/sound-effects').generateSoundEffects()"
+
+      - name: Render 3D animation frames
+        working-directory: movie-source/project
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          MESA_GL_VERSION_OVERRIDE: '3.3'
+          MESA_GLSL_VERSION_OVERRIDE: '330'
+        run: |
+          xvfb-run -a node - <<'NODE'
+          const SceneManager = require('./src/engine/scene-manager');
+          const FrameRenderer = require('./src/renderer/frame-renderer');
+          const config = require('./config/movie.config');
+          const scenes = new SceneManager(config.width, config.height);
+          scenes.init();
+          const renderer = new FrameRenderer();
+          renderer.init();
+          try {
+            renderer.renderAllFrames(scenes);
+          } finally {
+            renderer.dispose();
+          }
+          NODE
+
+      - name: Mix audio tracks
+        working-directory: movie-source/project
+        run: node -e "require('./src/audio/mixer').mixAllAudio()"
+
+      - name: Encode H.264 MP4 and burn Myanmar subtitles
+        working-directory: movie-source/project
+        run: |
+          node - <<'NODE'
+          const path = require('path');
+          const fs = require('fs-extra');
+          const config = require('./config/movie.config');
+          const { encodeVideo, burnSubtitles } = require('./src/renderer/video-encoder');
+          const raw = 'output/raw_video.mp4';
+          const final = path.join('output', config.output.video);
+          const srt = path.join('output', config.output.srt);
+          encodeVideo('temp/frames', 'output/final_mix.aac', raw);
+          burnSubtitles(raw, srt, final);
+          if (fs.existsSync(raw)) fs.removeSync(raw);
+          console.log('MP4 created:', final);
+          NODE
+
+      - name: Verify final MP4
+        working-directory: movie-source/project
+        run: |
+          test -s output/GI_KOKO_PIRATE_ADVENTURE.mp4
+          ffprobe -v error -show_entries format=duration,size \
+            -show_entries stream=codec_name,codec_type,width,height,pix_fmt \
+            -of json output/GI_KOKO_PIRATE_ADVENTURE.mp4 | tee output/ffprobe.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open('output/ffprobe.json'))
+          v=next(s for s in d['streams'] if s['codec_type']=='video')
+          a=next(s for s in d['streams'] if s['codec_type']=='audio')
+          duration=float(d['format']['duration'])
+          assert v['codec_name']=='h264', v
+          assert (v['width'],v['height'])==(360,640), v
+          assert a['codec_name']=='aac', a
+          assert abs(duration-300)<5, duration
+          print(f"MP4 VERIFIED: {v['width']}x{v['height']} H.264 + AAC, {duration:.2f}s")
+          PY
+
+      - name: Upload MP4 and subtitles
+        uses: actions/upload-artifact@v4
+        with:
+          name: GI-KOKO-PIRATE-ADVENTURE-MP4
+          path: |
+            movie-source/project/output/GI_KOKO_PIRATE_ADVENTURE.mp4
+            movie-source/project/output/GI_KOKO_PIRATE_ADVENTURE.srt
+            movie-source/project/output/GI_KOKO_PIRATE_ADVENTURE_EN.srt
+            movie-source/project/output/ffprobe.json
+            movie-source/project/output/render.log
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload render logs if failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: GI-KOKO-RENDER-ERROR-LOGS
+          path: movie-source/project/output/
+          if-no-files-found: ignore
+          retention-days: 7
