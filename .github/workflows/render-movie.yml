@@ -84,18 +84,31 @@ jobs:
           MESA_GLSL_VERSION_OVERRIDE: '330'
         run: |
           xvfb-run -a node - <<'NODE'
-          const SceneManager = require('./src/engine/scene-manager');
-          const FrameRenderer = require('./src/renderer/frame-renderer');
-          const config = require('./config/movie.config');
-          const scenes = new SceneManager(config.width, config.height);
-          scenes.init();
-          const renderer = new FrameRenderer();
-          renderer.init();
-          try {
-            renderer.renderAllFrames(scenes);
-          } finally {
-            renderer.dispose();
-          }
+          (async () => {
+            const SceneManager = require('./src/engine/scene-manager');
+            const FrameRenderer = require('./src/renderer/frame-renderer');
+            const config = require('./config/movie.config');
+            const scenes = new SceneManager(config.width, config.height);
+            scenes.init();
+            const renderer = new FrameRenderer();
+            renderer.init();
+            try {
+              // Await both synchronous and asynchronous renderer implementations.
+              await renderer.renderAllFrames(scenes);
+              console.log('Frame rendering completed.');
+            } finally {
+              // Headless WebGL contexts may not implement cancelAnimationFrame.
+              // Rendering is already complete; cleanup must not invalidate the output.
+              try {
+                renderer.dispose();
+              } catch (disposeError) {
+                console.warn('Renderer cleanup warning (ignored after render):', disposeError.message);
+              }
+            }
+          })().catch(error => {
+            console.error('3D frame rendering failed:', error && error.stack || error);
+            process.exitCode = 1;
+          });
           NODE
 
       - name: Mix audio tracks
