@@ -34,6 +34,23 @@ jobs:
           test -f movie-source/project/config/movie.config.js
           echo "Project archive verified."
 
+      - name: Patch typed-array pixel buffer compatibility
+        working-directory: movie-source/project
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path("src/renderer/three-renderer.js")
+          source = p.read_text()
+          # Browser/headless renderers may expose Uint8Array pixel data, not Node Buffers.
+          # Uint8Array has no .copy(); Buffer.from() makes the required independent byte copy.
+          source, count = re.subn(r"this\\.pixels\\.copy\\(\\)", "Buffer.from(this.pixels)", source)
+          if count != 1:
+              raise SystemExit(f"Expected exactly one incompatible this.pixels.copy() call; found {count}")
+          p.write_text(source)
+          print("Patched typed-array pixel copying:", count)
+          PY
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
