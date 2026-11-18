@@ -39,16 +39,14 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
           p = Path("src/renderer/three-renderer.js")
-          lines = p.read_text().splitlines()
-          print("===== three-renderer.js lines 88-106 =====")
-          for n in range(87, min(106, len(lines))):
-              print(f"{n+1}: {lines[n]}")
-          print("===== copy() occurrences =====")
-          for n, line in enumerate(lines, 1):
-              if ".copy(" in line or ".copy (" in line:
-                  print(f"{n}: {line}")
+          source = p.read_text()
+          old = "this.pixels.copy(flipped, dstRow, srcRow, srcRow + rowSize);"
+          new = "flipped.set(this.pixels.subarray(srcRow, srcRow + rowSize), dstRow);"
+          if old not in source:
+              raise SystemExit("Expected pixel-copy line was not found; refusing an unsafe patch.")
+          p.write_text(source.replace(old, new, 1))
+          print("Patched WebGL Uint8Array pixel rows with TypedArray.set().")
           PY
 
       - name: Setup Node.js
