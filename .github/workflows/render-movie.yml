@@ -34,21 +34,21 @@ jobs:
           test -f movie-source/project/config/movie.config.js
           echo "Project archive verified."
 
-      - name: Patch typed-array pixel buffer compatibility
+      - name: Inspect and patch headless pixel buffer compatibility
         working-directory: movie-source/project
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           p = Path("src/renderer/three-renderer.js")
-          source = p.read_text()
-          # Browser/headless renderers may expose Uint8Array pixel data, not Node Buffers.
-          # Uint8Array has no .copy(); Buffer.from() makes the required independent byte copy.
-          source, count = re.subn(r"this\.pixels\.copy\(\)", "Buffer.from(this.pixels)", source)
-          if count != 1:
-              raise SystemExit(f"Expected exactly one incompatible this.pixels.copy() call; found {count}")
-          p.write_text(source)
-          print("Patched typed-array pixel copying:", count)
+          lines = p.read_text().splitlines()
+          print("===== three-renderer.js lines 88-106 =====")
+          for n in range(87, min(106, len(lines))):
+              print(f"{n+1}: {lines[n]}")
+          print("===== copy() occurrences =====")
+          for n, line in enumerate(lines, 1):
+              if ".copy(" in line or ".copy (" in line:
+                  print(f"{n}: {line}")
           PY
 
       - name: Setup Node.js
