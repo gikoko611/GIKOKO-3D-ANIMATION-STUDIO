@@ -6,6 +6,7 @@ on:
     branches: [ main ]
     paths:
       - 'GI_KOKO_PROJECT.zip'
+      - '.github/workflows/render-movie.yml'
 
 permissions:
   contents: read
