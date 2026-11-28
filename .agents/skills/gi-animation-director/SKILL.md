@@ -75,6 +75,10 @@ Read the relevant reference before doing detailed work:
 - For 2D, specify layers, pivots, keyframes, in-betweens and compositing order.
 - Use original characters; do not copy a living artist's exact style.
 
+
+## Imported upstream specialist skills
+The verbatim upstream specialist `SKILL.md` files are stored under `.agents/skills/upstream/`. Read `.agents/skills/upstream/README.md` for the complete source-to-local path index and license notes. Use the matching specialist skill when a task needs its deeper workflow. These copies are guidance files only; dependencies, scripts, models and assets are not automatically installed. Check the Redmi 9A compatibility notes before attempting desktop/GPU workflows.
+
 ## Repository conventions
 - Keep reusable pipeline code under animation_pipeline/.
 - Keep reusable templates under animation_pipeline/templates/ and skill templates under this skill's templates/.
