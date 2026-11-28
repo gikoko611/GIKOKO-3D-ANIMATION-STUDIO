@@ -1,0 +1,56 @@
+{
+  "project": {
+    "title": "G.I KO KO Sample Short",
+    "version": 1,
+    "language": "my",
+    "style": "stickman",
+    "aspect_ratio": "9:16",
+    "width": 480,
+    "height": 854,
+    "fps": 24,
+    "target_duration_seconds": 20,
+    "renderer": "procedural-2d",
+    "output": "output/gi-animation.mp4"
+  },
+  "characters": [
+    {
+      "id": "CHAR_01",
+      "name": "G.I Hero",
+      "rig": "stickman-2d",
+      "palette": ["#171717", "#F5C542"],
+      "voice_id": "voice_01",
+      "continuity_notes": "Keep head size, limb lengths and costume marks identical in every scene."
+    }
+  ],
+  "scenes": [
+    {
+      "id": "SCENE_01",
+      "duration_seconds": 5,
+      "location": "simple city street",
+      "characters": ["CHAR_01"],
+      "action": "The character notices a mysterious box and cautiously approaches.",
+      "emotion": "curious",
+      "shots": [
+        {
+          "id": "SHOT_01",
+          "start_seconds": 0,
+          "duration_seconds": 5,
+          "shot_size": "wide",
+          "camera_angle": "eye-level",
+          "camera_move": "slow_push_in",
+          "camera_target": "CHAR_01",
+          "key_poses": [
+            {"time": 0.0, "pose": "idle"},
+            {"time": 1.2, "pose": "head_turn"},
+            {"time": 2.4, "pose": "anticipation"},
+            {"time": 3.2, "pose": "step_forward"},
+            {"time": 4.5, "pose": "reaction_hold"}
+          ],
+          "dialogue": [],
+          "sound_cues": ["city_ambience", "soft_footsteps"],
+          "transition_out": "cut"
+        }
+      ]
+    }
+  ]
+}

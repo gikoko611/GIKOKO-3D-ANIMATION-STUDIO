@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: gi-animation-studio
+    runtime: static
+    buildCommand: echo "Publishing G.I Animation Studio dashboard"
+    staticPublishPath: ./studio-web
